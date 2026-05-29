@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Asignador Comercial</title>
+    <meta name="theme-color" content="#2d6a4f">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css?v=admin-1">
+  </head>
+  <body>
+    <section class="auth-panel" id="authPanel">
+      <form class="auth-card" id="loginForm">
+        <img class="auth-logo" src="assets/logo-altron.png" alt="Altron Equipos y Soluciones para Concreto">
+        <div>
+          <p class="eyebrow">Ingreso privado</p>
+          <h1>Asignador Altron</h1>
+          <p>Ingresa con tu correo corporativo y clave.</p>
+        </div>
+        <label>
+          Correo
+          <input id="loginEmail" type="email" placeholder="usuario@altroningenieria.com" required>
+        </label>
+        <label>
+          Clave
+          <input id="loginPassword" type="password" placeholder="Clave" required>
+        </label>
+        <div class="auth-actions">
+          <button class="primary-button" type="submit">Ingresar</button>
+          <button class="small-button" id="forgotButton" type="button">Recordar contraseña</button>
+        </div>
+        <p class="auth-message" id="authMessage"></p>
+      </form>
+
+      <form class="auth-card is-hidden" id="changePasswordForm">
+        <img class="auth-logo" src="assets/logo-altron.png" alt="Altron Equipos y Soluciones para Concreto">
+        <div>
+          <p class="eyebrow">Primer ingreso</p>
+          <h1>Cambia tu clave</h1>
+          <p class="password-warning">Ingresaste con la clave universal. Debes cambiarla para continuar.</p>
+        </div>
+        <label>
+          Nueva clave
+          <input id="newPassword" type="password" placeholder="Puede tener cualquier longitud" required>
+        </label>
+        <button class="primary-button" type="submit">Guardar clave</button>
+      </form>
+    </section>
+
+    <header class="app-header">
+      <div class="brand-block">
+        <img class="brand-logo" src="assets/logo-altron.png" alt="Altron Equipos y Soluciones para Concreto">
+        <div>
+        <p class="eyebrow">Operaciones comerciales</p>
+        <h1>Asignador de tareas y agenda</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-button utility-hidden" id="exportCsvButton" title="Exportar CSV para Google Sheets" aria-label="Exportar CSV">
+          <span>CSV</span>
+        </button>
+        <button class="primary-button muted-button utility-hidden" id="notifyButton">Activar notificaciones</button>
+        <button class="primary-button muted-button" id="reportButton">Reporte seguimiento</button>
+        <button class="primary-button utility-hidden" id="seedButton">Cargar ejemplo</button>
+      </div>
+    </header>
+
+    <section class="login-panel">
+      <div>
+        <p class="eyebrow">Ingreso por correo</p>
+        <h2 id="sessionTitle">Selecciona tu usuario</h2>
+        <p id="sessionDescription">Cada departamento ve sus procesos. Sistemas administra y audita todo.</p>
+      </div>
+      <div class="login-controls">
+        <span class="session-pill" id="sessionPill"></span>
+        <button class="small-button" id="logoutButton" type="button">Cerrar sesión</button>
+      </div>
+    </section>
+
+    <main class="workspace">
+      <section class="panel form-panel" aria-labelledby="formTitle">
+        <div class="section-heading">
+          <p class="eyebrow">Nueva asignación</p>
+          <h2 id="formTitle">Crear tarea o evento</h2>
+        </div>
+
+        <form id="assignmentForm" class="assignment-form">
+          <label>
+            Tipo
+            <select id="type" required>
+              <option value="visita">Visita comercial</option>
+              <option value="departamento">Tarea por departamento</option>
+              <option value="oferta">Recordatorio de oferta comercial</option>
+              <option value="viaje">Cronograma de viaje</option>
+              <option value="pendiente">Pendiente general</option>
+            </select>
+          </label>
+
+          <label>
+            Título
+            <input id="title" type="text" placeholder="Ej. Visita cliente Zona Norte" required>
+          </label>
+
+          <div class="field-grid">
+            <label>
+              Departamento
+              <select id="department">
+                <option>Comercial</option>
+                <option>Contabilidad</option>
+                <option>Talento humano</option>
+                <option>Financiera</option>
+                <option>SST</option>
+                <option>Sistemas</option>
+                <option>Produccion</option>
+                <option>Diseno</option>
+                <option>Servicio tecnico</option>
+                <option>Compras</option>
+                <option>Almacen</option>
+                <option>Gerencia</option>
+                <option>Servicios generales</option>
+              </select>
+            </label>
+            <label>
+              Estado
+              <select id="status">
+                <option value="pendiente">Pendiente</option>
+                <option value="programado">Programado</option>
+                <option value="en-proceso">En proceso</option>
+                <option value="completado">Completado</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Responsable
+              <select id="ownerSelect" required></select>
+            </label>
+            <label>
+              Correo Google
+              <input id="email" type="email" placeholder="persona@empresa.com" readonly>
+            </label>
+          </div>
+
+          <label>
+            WhatsApp
+            <input id="phone" type="tel" placeholder="Ej. 573001234567" readonly>
+          </label>
+
+          <label>
+            Presentar a
+            <input id="recipient" type="text" placeholder="Cliente, jefe o departamento que recibe el trabajo">
+          </label>
+
+          <label>
+            Compartir con correos
+            <input id="sharedWith" type="text" placeholder="correos separados por coma para otros departamentos">
+          </label>
+
+          <div class="field-grid">
+            <label>
+              Departamento externo
+              <select id="externalDepartment">
+                <option value="">Seleccionar departamento</option>
+              </select>
+            </label>
+            <label>
+              Persona externa
+              <select id="externalPerson">
+                <option value="">Seleccionar persona</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="field-grid">
+            <label>
+              Inicio
+              <input id="start" type="datetime-local" required>
+            </label>
+            <label>
+              Fin
+              <input id="end" type="datetime-local" required>
+            </label>
+          </div>
+
+          <label>
+            Lugar
+            <input id="place" type="text" placeholder="Cliente, ciudad, sede o enlace">
+          </label>
+
+          <label>
+            Prioridad
+            <select id="priority">
+              <option value="alta">Alta</option>
+              <option value="media" selected>Media</option>
+              <option value="baja">Baja</option>
+            </select>
+          </label>
+
+          <label>
+            Avance (%)
+            <input id="progress" type="number" min="0" max="100" step="5" value="0">
+          </label>
+
+          <label>
+            Detalles
+            <textarea id="notes" rows="4" placeholder="Objetivo, contacto, documentos necesarios o instrucciones"></textarea>
+          </label>
+
+          <button class="primary-button full-width" type="submit">Guardar asignación</button>
+        </form>
+
+        <div class="import-box">
+          <label>
+            Subir notas DOCX
+            <input id="docxInput" type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+          </label>
+          <div class="import-results" id="importResults">
+            <p>Sube notas de Gemini para detectar próximos pasos y convertirlos en tareas.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="board" aria-label="Tablero de asignaciones">
+        <div class="toolbar">
+          <div class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="searchInput" type="search" placeholder="Buscar por responsable, cliente o departamento">
+          </div>
+          <select id="typeFilter" aria-label="Filtrar por tipo">
+            <option value="todos">Todos los tipos</option>
+            <option value="visita">Visitas comerciales</option>
+            <option value="departamento">Tareas por departamento</option>
+            <option value="oferta">Ofertas comerciales</option>
+            <option value="viaje">Viajes</option>
+            <option value="pendiente">Pendientes generales</option>
+          </select>
+        </div>
+
+        <div class="metrics" id="metrics"></div>
+        <div class="admin-panel" id="adminPanel" hidden>
+          <button class="admin-toggle" id="adminToggle" type="button" aria-expanded="false">
+            <span>
+              <span class="eyebrow">Administrador sistemas</span>
+              <strong>Bitácora de cambios</strong>
+            </span>
+            <span class="toggle-arrow" aria-hidden="true">▾</span>
+          </button>
+          <div class="audit-list" id="auditList"></div>
+        </div>
+        <div class="cards" id="cards"></div>
+      </section>
+    </main>
+
+    <template id="cardTemplate">
+      <article class="task-card">
+        <div class="card-top">
+          <span class="pill"></span>
+          <span class="priority"></span>
+        </div>
+        <h3></h3>
+        <dl>
+          <div><dt>Responsable</dt><dd data-field="owner"></dd></div>
+          <div><dt>Asignó</dt><dd data-field="createdBy"></dd></div>
+          <div><dt>Presentar a</dt><dd data-field="recipient"></dd></div>
+          <div><dt>Acceso extra</dt><dd data-field="sharedWith"></dd></div>
+          <div><dt>Departamento</dt><dd data-field="department"></dd></div>
+          <div><dt>Fecha</dt><dd data-field="date"></dd></div>
+          <div><dt>Vencimiento</dt><dd data-field="overdue"></dd></div>
+          <div><dt>Lugar</dt><dd data-field="place"></dd></div>
+        </dl>
+        <div class="progress-block">
+          <div class="progress-label"><span>Avance</span><strong data-field="progressText"></strong></div>
+          <div class="progress-track"><span data-field="progressBar"></span></div>
+        </div>
+        <div class="tracking-controls">
+          <label>
+            Estado
+            <select data-action="status">
+              <option value="pendiente">Pendiente</option>
+              <option value="programado">Programado</option>
+              <option value="en-proceso">En proceso</option>
+              <option value="completado">Completado</option>
+            </select>
+          </label>
+          <label>
+            Avance
+            <input data-action="progress" type="number" min="0" max="100" step="5">
+          </label>
+        </div>
+        <p class="notes"></p>
+        <div class="card-actions">
+          <a class="small-button calendar-link" target="_blank" rel="noreferrer">Google Calendar</a>
+          <a class="small-button whatsapp-link" target="_blank" rel="noreferrer">Enviar WhatsApp</a>
+          <button class="small-button download-ics" type="button">.ics</button>
+          <button class="small-button copy-summary" type="button">Copiar</button>
+          <button class="small-button danger delete-card" type="button">Eliminar</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="app.js?v=admin-1"></script>
+  </body>
+</html>
