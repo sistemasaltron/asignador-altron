@@ -73,7 +73,7 @@ form.addEventListener("submit", async (event) => {
     assignments = [data, ...assignments];
     addAudit("creo", data, `Creo tarea para ${data.department}`);
 
-    await saveAssignments();
+    await saveAssignment(data);
 
     console.log("Asignación enviada a Google Sheets.");
 
