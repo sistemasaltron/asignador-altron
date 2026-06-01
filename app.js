@@ -603,7 +603,8 @@ function getFormData() {
         createdBy: currentUser.email,
         createdByName: currentUser.name,
         createdByDepartment: currentUser.department,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        followUps: []
     };
 }
 
@@ -655,6 +656,41 @@ function render() {
         statusControl.addEventListener("change", () => updateAssignment(assignment.id, { status: statusControl.value, progress: statusControl.value === "completado" ? 100 : normalizedProgress(assignment) }, "actualizo estado"));
         progressControl.addEventListener("change", () => updateAssignment(assignment.id, { progress: Math.min(100, Math.max(0, Number(progressControl.value) || 0)), status: Number(progressControl.value) >= 100 ? "completado" : assignment.status }, "actualizo avance"));
         node.querySelector(".notes").textContent = assignment.notes || "Sin detalles adicionales.";
+        const followUpBox = document.createElement("div");
+        followUpBox.className = "followup-box";
+
+        const followUpTitle = document.createElement("strong");
+        followUpTitle.textContent = "Seguimiento de la tarea";
+
+        const followUpList = document.createElement("div");
+        followUpList.className = "followup-list";
+
+        const followUps = assignment.followUps || [];
+
+        followUpList.innerHTML = followUps.length
+            ? followUps.map((item) => `
+                <div class="followup-item">
+                    <span>${escapeHtml(item.userName || "Usuario")} - ${escapeHtml(formatDate(item.at))}</span>
+                    <p>${escapeHtml(item.text)}</p>
+                </div>
+            `).join("")
+            : '<p class="followup-empty">Sin seguimientos registrados.</p>';
+
+        const followUpTextarea = document.createElement("textarea");
+        followUpTextarea.className = "followup-textarea";
+        followUpTextarea.placeholder = "Escribe aquí el avance, novedad o comentario sobre esta tarea...";
+
+        const followUpButton = document.createElement("button");
+        followUpButton.type = "button";
+        followUpButton.className = "small-button";
+        followUpButton.textContent = "Guardar seguimiento";
+
+        followUpButton.addEventListener("click", () => {
+            saveFollowUp(assignment.id, followUpTextarea.value);
+        });
+
+        followUpBox.append(followUpTitle, followUpList, followUpTextarea, followUpButton);
+        node.querySelector(".notes").after(followUpBox);
         node.querySelector(".calendar-link").href = googleCalendarUrl(assignment);
         node.querySelector(".whatsapp-link").href = whatsappUrl(assignment);
         node.querySelector(".download-ics").addEventListener("click", () => downloadIcs(assignment));
@@ -926,10 +962,60 @@ async function updateAssignment(id, changes, action = "actualizo") {
         addAudit(action, { ...target, ...changes }, `${action} en ${target.department}`);
     }
 
-    await saveAssignments();
+    const updatedAssignment = assignments.find((assignment) => assignment.id === id);
+
+    if (updatedAssignment) {
+        await saveAssignment(updatedAssignment);
+    }
+
     render();
 }
+async function saveFollowUp(id, text) {
+    const cleanText = String(text || "").trim();
 
+    if (!cleanText) {
+        alert("Escribe una descripción o avance antes de guardar.");
+        return;
+    }
+
+    let updatedAssignment = null;
+
+    assignments = assignments.map((assignment) => {
+        if (assignment.id !== id) {
+            return assignment;
+        }
+
+        const followUps = assignment.followUps || [];
+
+        updatedAssignment = {
+            ...assignment,
+            followUps: [
+                ...followUps,
+                {
+                    id: createId(),
+                    text: cleanText,
+                    userEmail: currentUser.email,
+                    userName: currentUser.name,
+                    at: new Date().toISOString()
+                }
+            ],
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.email
+        };
+
+        return updatedAssignment;
+    });
+
+    if (!updatedAssignment) {
+        alert("No se encontró la tarea para guardar el seguimiento.");
+        return;
+    }
+
+    addAudit("seguimiento", updatedAssignment, `Agregó seguimiento a la tarea ${updatedAssignment.title}`);
+
+    await saveAssignment(updatedAssignment);
+    render();
+}
 function addAudit(action, assignment, detail) {
     const entry = {
         id: createId(),
