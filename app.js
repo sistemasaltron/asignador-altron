@@ -427,7 +427,7 @@ function applyResponsibleSelection() {
 
 function populateExternalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
-        .filter((department) => department && department !== departmentSelect.value)
+        .filter((department) => department)
         .sort((a, b) => a.localeCompare(b));
     externalDepartment.innerHTML = '<option value="">Seleccionar departamento</option>';
     departments.forEach((department) => {
@@ -790,12 +790,17 @@ function canViewAssignment(assignment) {
     if (isSystemsAdmin()) {
         return true;
     }
+
     const userEmail = currentUser.email.toLowerCase();
-    const shared = (assignment.sharedWith || []).map((email) => email.toLowerCase());
-    return assignment.department === currentUser.department
-        || assignment.email?.toLowerCase() === userEmail
-        || assignment.createdBy?.toLowerCase() === userEmail
-        || shared.includes(userEmail);
+
+    const assignedEmails = parseEmailList(assignment.email || "");
+    const sharedEmails = (assignment.sharedWith || [])
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean);
+
+    return assignment.createdBy?.toLowerCase() === userEmail
+        || assignedEmails.includes(userEmail)
+        || sharedEmails.includes(userEmail);
 }
 
 function visibleAssignments() {
