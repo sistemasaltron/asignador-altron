@@ -267,6 +267,16 @@ async function saveAssignments() {
     console.log("Resultado guardando tareas:", response);
     return response;
 }
+async function saveAssignment(assignment) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+
+    const response = await cloudPost("saveAssignment", {
+        assignment
+    });
+
+    console.log("Resultado guardando tarea individual:", response);
+    return response;
+}
 
 function readAuditLog() {
     try {
@@ -280,6 +290,16 @@ async function saveAuditLog() {
     localStorage.setItem(AUDIT_KEY, JSON.stringify(auditLog));
     const response = await cloudPost("saveAuditLog", { auditLog });
     console.log("Resultado guardando auditoría:", response);
+    return response;
+}
+async function saveAuditEntry(auditEntry) {
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(auditLog));
+
+    const response = await cloudPost("saveAuditEntry", {
+        auditEntry
+    });
+
+    console.log("Resultado guardando auditoría individual:", response);
     return response;
 }
 
@@ -906,7 +926,7 @@ async function updateAssignment(id, changes, action = "actualizo") {
 }
 
 function addAudit(action, assignment, detail) {
-    auditLog = [{
+    const entry = {
         id: createId(),
         action,
         detail,
@@ -917,9 +937,14 @@ function addAudit(action, assignment, detail) {
         userName: currentUser.name,
         userDepartment: currentUser.department,
         at: new Date().toISOString()
-    }, ...auditLog].slice(0, 200);
+    };
 
-    saveAuditLog();
+    auditLog = [entry, ...auditLog].slice(0, 200);
+    localStorage.setItem(AUDIT_KEY, JSON.stringify(auditLog));
+
+    saveAuditEntry(entry);
+
+    return entry;
 }
 
     function renderAudit() {
