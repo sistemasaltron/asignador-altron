@@ -87,6 +87,7 @@ form.addEventListener("submit", async (event) => {
     form.reset();
     setDefaultDates();
     render();
+});
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
