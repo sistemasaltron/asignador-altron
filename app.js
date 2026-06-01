@@ -82,16 +82,7 @@ form.addEventListener("submit", async (event) => {
         return;
     }
 
-    try {
-        const emailResponse = await cloudPost("sendAssignmentEmail", {
-            assignment: data,
-            appUrl: "https://sistemasaltron.github.io/asignador-altron/"
-        });
-
-        console.log("Resultado envío de correo:", emailResponse);
-    } catch (error) {
-        console.error("La tarea se guardó, pero falló el envío de correo:", error);
-    }
+    
 
     form.reset();
     setDefaultDates();
