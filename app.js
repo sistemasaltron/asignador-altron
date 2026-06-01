@@ -73,16 +73,9 @@ form.addEventListener("submit", async (event) => {
     assignments = [data, ...assignments];
     addAudit("creo", data, `Creo tarea para ${data.department}`);
 
-    const saveResponse = await saveAssignments();
+    await saveAssignments();
 
-    console.log("Resultado guardando asignación:", saveResponse);
-
-    if (!saveResponse || saveResponse.ok === false) {
-        alert("La asignación no se pudo guardar en Google Sheets. Revisa la conexión antes de continuar.");
-        return;
-    }
-
-    
+    console.log("Asignación enviada a Google Sheets.");
 
     form.reset();
     setDefaultDates();
