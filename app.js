@@ -278,6 +278,14 @@ async function saveAssignment(assignment) {
     return response;
 }
 
+async function deleteAssignmentCloud(id) {
+    const response = await cloudPost("deleteAssignment", {
+        id
+    });
+
+    console.log("Resultado eliminando tarea individual:", response);
+    return response;
+}
 function readAuditLog() {
     try {
         return JSON.parse(localStorage.getItem(AUDIT_KEY)) ?? [];
@@ -940,13 +948,16 @@ async function deleteAssignment(id) {
     }
 
     const deleted = assignments.find((assignment) => assignment.id === id);
-    assignments = assignments.filter((assignment) => assignment.id !== id);
 
     if (deleted) {
         addAudit("borro", deleted, `Borro tarea de ${deleted.department}`);
     }
 
-    await saveAssignments();
+    assignments = assignments.filter((assignment) => assignment.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+
+    await deleteAssignmentCloud(id);
+
     render();
 }
 
