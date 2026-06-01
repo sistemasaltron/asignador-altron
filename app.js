@@ -237,13 +237,18 @@ async function cloudPost(action, payload = {}) {
 
     try {
         console.log("Enviando a Google Sheets:", action, payload);
-        const response = await cloudGet(action, {
+
+        cloudGet(action, {
             payload: JSON.stringify(payload)
+        }).then((response) => {
+            console.log("Guardado confirmado por Google Sheets:", action, response);
+        }).catch((error) => {
+            console.warn("No se pudo confirmar guardado en Google Sheets:", action, error);
         });
-        console.log("Guardado confirmado por Google Sheets:", action, response);
-        return response;
+
+        return { ok: true, pending: true };
     } catch (error) {
-        console.error("No se pudo guardar en Google Sheets:", action, error);
+        console.error("No se pudo iniciar guardado en Google Sheets:", action, error);
         return { ok: false, error: error.message || String(error) };
     }
 }
