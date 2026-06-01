@@ -74,6 +74,7 @@ form.addEventListener("submit", async (event) => {
     addAudit("creo", data, `Creo tarea para ${data.department}`);
 
     await saveAssignment(data);
+    await sendAssignmentEmail(data);
 
     console.log("Asignación enviada a Google Sheets.");
 
@@ -275,6 +276,15 @@ async function saveAssignment(assignment) {
     });
 
     console.log("Resultado guardando tarea individual:", response);
+    return response;
+}
+async function sendAssignmentEmail(assignment) {
+    const response = await cloudPost("sendAssignmentEmail", {
+        assignment,
+        appUrl: "https://sistemasaltron.github.io/asignador-altron/"
+    });
+
+    console.log("Resultado enviando correo de asignación:", response);
     return response;
 }
 
