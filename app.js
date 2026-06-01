@@ -72,11 +72,17 @@ form.addEventListener("submit", async (event) => {
     }
     assignments = [data, ...assignments];
     addAudit("creo", data, `Creo tarea para ${data.department}`);
+
     await saveAssignments();
+
+    await cloudPost("sendAssignmentEmail", {
+        assignment: data,
+        appUrl: "https://sistemasaltron.github.io/asignador-altron/"
+    });
+
     form.reset();
     setDefaultDates();
     render();
-});
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
