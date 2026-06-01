@@ -73,12 +73,25 @@ form.addEventListener("submit", async (event) => {
     assignments = [data, ...assignments];
     addAudit("creo", data, `Creo tarea para ${data.department}`);
 
-    await saveAssignments();
+    const saveResponse = await saveAssignments();
 
-    await cloudPost("sendAssignmentEmail", {
-        assignment: data,
-        appUrl: "https://sistemasaltron.github.io/asignador-altron/"
-    });
+    console.log("Resultado guardando asignación:", saveResponse);
+
+    if (!saveResponse || saveResponse.ok === false) {
+        alert("La asignación no se pudo guardar en Google Sheets. Revisa la conexión antes de continuar.");
+        return;
+    }
+
+    try {
+        const emailResponse = await cloudPost("sendAssignmentEmail", {
+            assignment: data,
+            appUrl: "https://sistemasaltron.github.io/asignador-altron/"
+        });
+
+        console.log("Resultado envío de correo:", emailResponse);
+    } catch (error) {
+        console.error("La tarea se guardó, pero falló el envío de correo:", error);
+    }
 
     form.reset();
     setDefaultDates();
