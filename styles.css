@@ -961,3 +961,23 @@ dd {
         padding: 12px;
     }
 }
+.admin-only {
+    display: none;
+}
+
+.systems-admin .admin-only {
+    display: inline-flex;
+}
+
+.view-switch {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+    .view-switch .small-button.active {
+        background: #2d6a4f;
+        color: #ffffff;
+        border-color: #2d6a4f;
+    }
