@@ -1,6 +1,6 @@
 {
-  "name": "Asignador Comercial Altron",
-  "short_name": "Asignador",
+  "name": "Asignador Altron",
+  "short_name": "Asignador Altron",
   "description": "Seguimiento de tareas, agenda comercial, viajes, ofertas comerciales y vencimientos.",
   "start_url": "./index.html",
   "scope": "./",
