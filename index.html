@@ -224,20 +224,25 @@
       </section>
 
       <section class="board" aria-label="Tablero de asignaciones">
-        <div class="toolbar">
-          <div class="search-box">
-            <span aria-hidden="true">⌕</span>
-            <input id="searchInput" type="search" placeholder="Buscar por responsable, cliente o departamento">
+          <div class="toolbar">
+              <div class="view-switch">
+                  <button class="small-button active" type="button" data-task-view="assigned">Me asignaron</button>
+                  <button class="small-button" type="button" data-task-view="created">Yo asigné</button>
+                  <button class="small-button admin-only" type="button" data-task-view="all">Todas</button>
+              </div>
+              <div class="search-box">
+                  <span aria-hidden="true">⌕</span>
+                  <input id="searchInput" type="search" placeholder="Buscar por responsable, cliente o departamento">
+              </div>
+              <select id="typeFilter" aria-label="Filtrar por tipo">
+                  <option value="todos">Todos los tipos</option>
+                  <option value="visita">Visitas comerciales</option>
+                  <option value="departamento">Tareas por departamento</option>
+                  <option value="oferta">Ofertas comerciales</option>
+                  <option value="viaje">Viajes</option>
+                  <option value="pendiente">Pendientes generales</option>
+              </select>
           </div>
-          <select id="typeFilter" aria-label="Filtrar por tipo">
-            <option value="todos">Todos los tipos</option>
-            <option value="visita">Visitas comerciales</option>
-            <option value="departamento">Tareas por departamento</option>
-            <option value="oferta">Ofertas comerciales</option>
-            <option value="viaje">Viajes</option>
-            <option value="pendiente">Pendientes generales</option>
-          </select>
-        </div>
 
         <div class="metrics" id="metrics"></div>
         <div class="admin-panel" id="adminPanel" hidden>
