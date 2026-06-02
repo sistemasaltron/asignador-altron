@@ -41,6 +41,8 @@ const forgotButton = document.querySelector("#forgotButton");
 const logoutButton = document.querySelector("#logoutButton");
 const searchInput = document.querySelector("#searchInput");
 const typeFilter = document.querySelector("#typeFilter");
+const taskViewButtons = document.querySelectorAll("[data-task-view]");
+let taskViewMode = "assigned";
 const seedButton = document.querySelector("#seedButton");
 const exportCsvButton = document.querySelector("#exportCsvButton");
 const reportButton = document.querySelector("#reportButton");
@@ -85,6 +87,24 @@ form.addEventListener("submit", async (event) => {
 
 searchInput.addEventListener("input", render);
 typeFilter.addEventListener("change", render);
+taskViewButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        const nextView = button.dataset.taskView;
+
+        if (nextView === "all" && !isSystemsAdmin()) {
+            alert("Solo Sistemas puede ver todas las tareas.");
+            return;
+        }
+
+        taskViewMode = nextView;
+        selectedAssignmentId = null;
+
+        taskViewButtons.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+
+        render();
+    });
+});
 seedButton.addEventListener("click", loadExampleData);
 exportCsvButton.addEventListener("click", exportCsv);
 reportButton.addEventListener("click", downloadTrackingReport);
@@ -812,10 +832,44 @@ function filteredAssignments() {
             assignment.place,
             assignment.notes
         ].join(" ").toLowerCase();
+
         const matchesQuery = !query || text.includes(query);
         const matchesType = type === "todos" || assignment.type === type;
-        return canViewAssignment(assignment) && matchesMetricFilter(assignment) && matchesQuery && matchesType;
+
+        return canViewAssignment(assignment)
+            && matchesTaskView(assignment)
+            && matchesMetricFilter(assignment)
+            && matchesQuery
+            && matchesType;
     });
+}
+function matchesTaskView(assignment) {
+    if (taskViewMode === "all") {
+        return isSystemsAdmin();
+    }
+
+    if (taskViewMode === "created") {
+        return isCreatedByCurrentUser(assignment);
+    }
+
+    return isAssignedOrSharedWithCurrentUser(assignment);
+}
+
+function isAssignedOrSharedWithCurrentUser(assignment) {
+    const userEmail = currentUser.email.toLowerCase();
+
+    const assignedEmails = parseEmailList(assignment.email || "");
+
+    const sharedEmails = (assignment.sharedWith || [])
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean);
+
+    return assignedEmails.includes(userEmail) || sharedEmails.includes(userEmail);
+}
+
+function isCreatedByCurrentUser(assignment) {
+    const userEmail = currentUser.email.toLowerCase();
+    return String(assignment.createdBy || "").trim().toLowerCase() === userEmail;
 }
 
 function matchesMetricFilter(assignment) {
