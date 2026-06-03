@@ -31,6 +31,8 @@ const departmentSelect = document.querySelector("#department");
 const ownerSelect = document.querySelector("#ownerSelect");
 const externalDepartment = document.querySelector("#externalDepartment");
 const externalPerson = document.querySelector("#externalPerson");
+const additionalDepartment = document.querySelector("#additionalDepartment");
+const additionalPerson = document.querySelector("#additionalPerson");
 const loginForm = document.querySelector("#loginForm");
 const changePasswordForm = document.querySelector("#changePasswordForm");
 const loginEmail = document.querySelector("#loginEmail");
@@ -122,6 +124,7 @@ metrics.addEventListener("click", (event) => {
 departmentSelect.addEventListener("change", () => {
     populateResponsibleOptions();
     populateExternalDepartments();
+    populateAdditionalDepartments();
 });
 ownerSelect.addEventListener("change", () => {
     applyResponsibleSelection();
@@ -131,6 +134,13 @@ externalDepartment.addEventListener("change", () => {
 });
 externalPerson.addEventListener("change", () => {
     applyExternalShareSelection();
+});
+additionalDepartment.addEventListener("change", () => {
+    populateAdditionalPeople();
+});
+
+additionalPerson.addEventListener("change", () => {
+    applyAdditionalResponsibleSelection();
 });
 loginForm.addEventListener("submit", handleLogin);
 changePasswordForm.addEventListener("submit", handlePasswordChange);
@@ -420,6 +430,7 @@ function applyCurrentUserToUi() {
     departmentSelect.value = currentUser.department;
     populateResponsibleOptions();
     populateExternalDepartments();
+    populateAdditionalDepartments();
 }
 
 function populateResponsibleOptions(preferredEmail = "") {
@@ -463,7 +474,63 @@ function applyResponsibleSelection() {
     document.querySelector("#email").value = selectedUser?.email || "";
     document.querySelector("#phone").value = selectedUser?.phone || "";
 }
+function populateAdditionalDepartments() {
+    const departments = [...new Set(users.map((user) => user.department))]
+        .filter((department) => department)
+        .sort((a, b) => a.localeCompare(b));
 
+    additionalDepartment.innerHTML = '<option value="">Seleccionar departamento del responsable</option>';
+
+    departments.forEach((department) => {
+        const option = document.createElement("option");
+        option.value = department;
+        option.textContent = department;
+        additionalDepartment.appendChild(option);
+    });
+
+    populateAdditionalPeople();
+}
+
+function populateAdditionalPeople() {
+    const department = additionalDepartment.value;
+    const departmentUsers = users.filter((user) => user.department === department && user.email);
+
+    additionalPerson.innerHTML = '<option value="">Seleccionar responsable adicional</option>';
+
+    if (!department) {
+        return;
+    }
+
+    const allOption = document.createElement("option");
+    allOption.value = "__all__";
+    allOption.textContent = `Agregar todos - ${department}`;
+    additionalPerson.appendChild(allOption);
+
+    departmentUsers.forEach((user) => {
+        const option = document.createElement("option");
+        option.value = user.email;
+        option.textContent = `${user.name} - ${user.role}`;
+        additionalPerson.appendChild(option);
+    });
+}
+
+function applyAdditionalResponsibleSelection() {
+    const department = additionalDepartment.value;
+    const selected = additionalPerson.value;
+
+    if (!department || !selected) {
+        return;
+    }
+
+    const selectedEmails = selected === "__all__"
+        ? users.filter((user) => user.department === department && user.email).map((user) => user.email)
+        : [selected];
+
+    const currentEmails = parseEmailList(document.querySelector("#additionalResponsible").value);
+    const merged = [...new Set([...currentEmails, ...selectedEmails.map((email) => email.toLowerCase())])];
+
+    document.querySelector("#additionalResponsible").value = merged.join(", ");
+}
 function populateExternalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
         .filter((department) => department)
@@ -631,6 +698,7 @@ function getFormData() {
         phone: valueOf("#phone"),
         department: valueOf("#department"),
         recipient: valueOf("#recipient"),
+        additionalResponsible: parseEmailList(valueOf("#additionalResponsible")),
         sharedWith: parseEmailList(valueOf("#sharedWith")),
         status: valueOf("#status"),
         start: valueOf("#start"),
@@ -679,6 +747,7 @@ function render() {
         node.querySelector('[data-field="owner"]').textContent = emailLabel(assignment);
         node.querySelector('[data-field="createdBy"]').textContent = creatorLabel(assignment);
         node.querySelector('[data-field="recipient"]').textContent = assignment.recipient || "Por definir";
+        node.querySelector('[data-field="additionalResponsible"]').textContent = (assignment.additionalResponsible || []).join(", ") || "Sin responsables adicionales";
         node.querySelector('[data-field="sharedWith"]').textContent = (assignment.sharedWith || []).join(", ") || "Sin correos informados";
         node.querySelector('[data-field="department"]').textContent = assignment.department;
         node.querySelector('[data-field="date"]').textContent = dateRange(assignment);
@@ -830,6 +899,7 @@ function filteredAssignments() {
             assignment.phone,
             assignment.department,
             assignment.recipient,
+            (assignment.additionalResponsible || []).join(" "),
             assignment.place,
             assignment.notes
         ].join(" ").toLowerCase();
@@ -860,12 +930,16 @@ function isAssignedOrSharedWithCurrentUser(assignment) {
     const userEmail = currentUser.email.toLowerCase();
 
     const assignedEmails = parseEmailList(assignment.email || "");
-
+    const additionalResponsibleEmails = (assignment.additionalResponsible || [])
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean);
     const sharedEmails = (assignment.sharedWith || [])
         .map((email) => String(email || "").trim().toLowerCase())
         .filter(Boolean);
 
-    return assignedEmails.includes(userEmail) || sharedEmails.includes(userEmail);
+    return assignedEmails.includes(userEmail)
+        || additionalResponsibleEmails.includes(userEmail)
+        || sharedEmails.includes(userEmail);
 }
 
 function isCreatedByCurrentUser(assignment) {
@@ -903,12 +977,16 @@ function canViewAssignment(assignment) {
     const userEmail = currentUser.email.toLowerCase();
 
     const assignedEmails = parseEmailList(assignment.email || "");
+    const additionalResponsibleEmails = (assignment.additionalResponsible || [])
+        .map((email) => String(email || "").trim().toLowerCase())
+        .filter(Boolean);
     const sharedEmails = (assignment.sharedWith || [])
         .map((email) => String(email || "").trim().toLowerCase())
         .filter(Boolean);
 
     return assignment.createdBy?.toLowerCase() === userEmail
         || assignedEmails.includes(userEmail)
+        || additionalResponsibleEmails.includes(userEmail)
         || sharedEmails.includes(userEmail);
 }
 
@@ -962,7 +1040,7 @@ function googleCalendarUrl(assignment) {
         dates: `${calendarDate(assignment.start)}/${calendarDate(assignment.end)}`,
         details: summaryText(assignment),
         location: assignment.place || "",
-        add: assignment.email || ""
+        add: [assignment.email, ...(assignment.additionalResponsible || [])].filter(Boolean).join(",")
     });
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
@@ -988,6 +1066,7 @@ function downloadIcs(assignment) {
         `LOCATION:${escapeIcs(assignment.place || "")}`,
         `DESCRIPTION:${escapeIcs(summaryText(assignment))}`,
         assignment.email ? `ATTENDEE;CN=${escapeIcs(assignment.owner)}:MAILTO:${assignment.email}` : "",
+        ...(assignment.additionalResponsible || []).map((email) => `ATTENDEE;CN=Responsable adicional:MAILTO:${email}`),
         "END:VEVENT",
         "END:VCALENDAR"
     ].filter(Boolean).join("\r\n");
@@ -1140,7 +1219,7 @@ function addAudit(action, assignment, detail) {
     }
 
     function exportCsv() {
-        const header = ["tipo", "titulo", "responsable_principal", "correo_responsable", "whatsapp", "departamento", "presentar_a", "correos_informados_solo_lectura", "estado", "avance", "dias_vencidos", "inicio", "fin", "lugar", "prioridad", "detalles"];
+        const header = ["tipo", "titulo", "responsable_principal", "correo_responsable", "whatsapp", "departamento", "presentar_a", "responsables_adicionales", "correos_informados_solo_lectura", "estado", "avance", "dias_vencidos", "inicio", "fin", "lugar", "prioridad", "detalles"];
         const rows = visibleAssignments().map((item) => [
             typeLabels[item.type],
             item.title,
@@ -1149,6 +1228,7 @@ function addAudit(action, assignment, detail) {
             item.phone,
             item.department,
             item.recipient,
+            (item.additionalResponsible || []).join("; "),
             (item.sharedWith || []).join("; "),
             item.status,
             normalizedProgress(item),
@@ -1394,6 +1474,7 @@ function addAudit(action, assignment, detail) {
             assignment.phone ? `WhatsApp: ${assignment.phone}` : "",
             `Departamento: ${assignment.department}`,
             assignment.recipient ? `Presentar a: ${assignment.recipient}` : "",
+            assignment.additionalResponsible?.length ? `Responsables adicionales: ${assignment.additionalResponsible.join(", ")}` : "",
             assignment.sharedWith?.length ? `Correos informados / solo lectura: ${assignment.sharedWith.join(", ")}` : "",
             `Estado: ${assignment.status}`,
             `Avance: ${normalizedProgress(assignment)}%`,
