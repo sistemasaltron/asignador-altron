@@ -468,7 +468,7 @@ function populateExternalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
         .filter((department) => department)
         .sort((a, b) => a.localeCompare(b));
-    externalDepartment.innerHTML = '<option value="">Seleccionar departamento</option>';
+    externalDepartment.innerHTML = '<option value="">Seleccionar departamento para informar</option>';
     departments.forEach((department) => {
         const option = document.createElement("option");
         option.value = department;
@@ -481,13 +481,13 @@ function populateExternalDepartments() {
 function populateExternalPeople() {
     const department = externalDepartment.value;
     const departmentUsers = users.filter((user) => user.department === department && user.email);
-    externalPerson.innerHTML = '<option value="">Seleccionar persona</option>';
+    externalPerson.innerHTML = '<option value="">Seleccionar persona informada</option>';
     if (!department) {
         return;
     }
     const allOption = document.createElement("option");
     allOption.value = "__all__";
-    allOption.textContent = `Todos - ${department}`;
+    allOption.textContent = `Informar a todos - ${department}`;
     externalPerson.appendChild(allOption);
     departmentUsers.forEach((user) => {
         const option = document.createElement("option");
@@ -1140,7 +1140,7 @@ function addAudit(action, assignment, detail) {
     }
 
     function exportCsv() {
-        const header = ["tipo", "titulo", "responsable", "correo", "whatsapp", "departamento", "presentar_a", "compartido_con", "estado", "avance", "dias_vencidos", "inicio", "fin", "lugar", "prioridad", "detalles"];
+        const header = ["tipo", "titulo", "responsable_principal", "correo_responsable", "whatsapp", "departamento", "presentar_a", "correos_informados_solo_lectura", "estado", "avance", "dias_vencidos", "inicio", "fin", "lugar", "prioridad", "detalles"];
         const rows = visibleAssignments().map((item) => [
             typeLabels[item.type],
             item.title,
