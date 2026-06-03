@@ -298,6 +298,7 @@ async function saveAssignment(assignment) {
     console.log("Resultado guardando tarea individual:", response);
     return response;
 }
+
 async function sendAssignmentEmail(assignment) {
     const response = await cloudPost("sendAssignmentEmail", {
         assignment,
@@ -678,7 +679,7 @@ function render() {
         node.querySelector('[data-field="owner"]').textContent = emailLabel(assignment);
         node.querySelector('[data-field="createdBy"]').textContent = creatorLabel(assignment);
         node.querySelector('[data-field="recipient"]').textContent = assignment.recipient || "Por definir";
-        node.querySelector('[data-field="sharedWith"]').textContent = (assignment.sharedWith || []).join(", ") || "Solo departamento";
+        node.querySelector('[data-field="sharedWith"]').textContent = (assignment.sharedWith || []).join(", ") || "Sin correos informados";
         node.querySelector('[data-field="department"]').textContent = assignment.department;
         node.querySelector('[data-field="date"]').textContent = dateRange(assignment);
         node.querySelector('[data-field="overdue"]').textContent = overdueLabel(assignment);
@@ -1393,7 +1394,7 @@ function addAudit(action, assignment, detail) {
             assignment.phone ? `WhatsApp: ${assignment.phone}` : "",
             `Departamento: ${assignment.department}`,
             assignment.recipient ? `Presentar a: ${assignment.recipient}` : "",
-            assignment.sharedWith?.length ? `Compartido con: ${assignment.sharedWith.join(", ")}` : "",
+            assignment.sharedWith?.length ? `Correos informados / solo lectura: ${assignment.sharedWith.join(", ")}` : "",
             `Estado: ${assignment.status}`,
             `Avance: ${normalizedProgress(assignment)}%`,
             `Vencimiento: ${overdueLabel(assignment)}`,
