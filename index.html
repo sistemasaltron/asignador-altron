@@ -87,16 +87,25 @@
         </div>
 
         <form id="assignmentForm" class="assignment-form">
-            <label>
-                Tipo
-                <select id="type" required>
-                    <option value="visita">Visita comercial</option>
-                    <option value="departamento">Tarea por departamento</option>
-                    <option value="oferta">Recordatorio de oferta comercial</option>
-                    <option value="viaje">Cronograma de viaje</option>
-                    <option value="pendiente">Pendiente general</option>
-                </select>
-            </label>
+           <label>
+    Tipo
+    <select id="type" required>
+        <option value="visita">Visita comercial</option>
+        <option value="reunion">Reunión</option>
+        <option value="departamento">Tarea por departamento</option>
+        <option value="oferta">Recordatorio de oferta comercial</option>
+        <option value="viaje">Cronograma de viaje</option>
+        <option value="documentacion">Documentación pendiente</option>
+        <option value="pendiente">Pendiente general</option>
+        <option value="otro">Otro</option>
+    </select>
+</label>
+
+<label id="customTypeField" class="is-hidden">
+    Tipo personalizado
+    <input id="customType" type="text" maxlength="80"
+           placeholder="Escribe qué tipo de tarea es">
+</label>
 
             <label>
                 Título
@@ -252,14 +261,17 @@
                   <span aria-hidden="true">⌕</span>
                   <input id="searchInput" type="search" placeholder="Buscar por responsable, cliente o departamento">
               </div>
-              <select id="typeFilter" aria-label="Filtrar por tipo">
-                  <option value="todos">Todos los tipos</option>
-                  <option value="visita">Visitas comerciales</option>
-                  <option value="departamento">Tareas por departamento</option>
-                  <option value="oferta">Ofertas comerciales</option>
-                  <option value="viaje">Viajes</option>
-                  <option value="pendiente">Pendientes generales</option>
-              </select>
+            <select id="typeFilter" aria-label="Filtrar por tipo">
+    <option value="todos">Todos los tipos</option>
+    <option value="visita">Visitas comerciales</option>
+    <option value="reunion">Reuniones</option>
+    <option value="departamento">Tareas por departamento</option>
+    <option value="oferta">Ofertas comerciales</option>
+    <option value="viaje">Viajes</option>
+    <option value="documentacion">Documentación pendiente</option>
+    <option value="pendiente">Pendientes generales</option>
+    <option value="otro">Otros</option>
+</select>
           </div>
 
         <div class="metrics" id="metrics"></div>
