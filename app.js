@@ -14,10 +14,21 @@ const CLOUD_ENABLED = GOOGLE_APPS_SCRIPT_URL.includes("script.google.com") && GO
 
 const typeLabels = {
     visita: "Visita comercial",
+    reunion: "Reunión",
     departamento: "Tarea por departamento",
     oferta: "Oferta comercial",
     viaje: "Viaje",
-    pendiente: "Pendiente general"
+    documentacion: "Documentación pendiente",
+    pendiente: "Pendiente general",
+    otro: "Otro"
+};
+
+function assignmentTypeLabel(assignment) {
+    if (assignment.type === "otro") {
+        return String(assignment.customType || "Otro").trim() || "Otro";
+    }
+
+    return assignmentTypeLabel(assignment) || "Tarea";
 };
 
 const form = document.querySelector("#assignmentForm");
@@ -51,6 +62,9 @@ const reportButton = document.querySelector("#reportButton");
 const notifyButton = document.querySelector("#notifyButton");
 const docxInput = document.querySelector("#docxInput");
 const importResults = document.querySelector("#importResults");
+const typeSelect = document.querySelector("#type");
+const customTypeField = document.querySelector("#customTypeField");
+const customTypeInput = document.querySelector("#customType");
 const adminPanel = document.querySelector("#adminPanel");
 const adminToggle = document.querySelector("#adminToggle");
 const auditList = document.querySelector("#auditList");
@@ -112,6 +126,7 @@ exportCsvButton.addEventListener("click", exportCsv);
 reportButton.addEventListener("click", downloadTrackingReport);
 notifyButton.addEventListener("click", enableNotifications);
 docxInput.addEventListener("change", importDocxNotes);
+typeSelect.addEventListener("change", toggleCustomTypeField);
 metrics.addEventListener("click", (event) => {
     const metricCard = event.target.closest(".metric");
     if (!metricCard) {
@@ -692,6 +707,9 @@ function getFormData() {
     return {
         id: createId(),
         type: valueOf("#type"),
+        customType: valueOf("#type") === "otro"
+        ? valueOf("#customType")
+        : "",
         title: valueOf("#title"),
         owner: ownerNameFromSelection(),
         email: valueOf("#email"),
@@ -726,6 +744,17 @@ function valueOf(selector) {
     return document.querySelector(selector).value.trim();
 }
 
+function toggleCustomTypeField() {
+    const isOther = typeSelect.value === "otro";
+
+    customTypeField.classList.toggle("is-hidden", !isOther);
+    customTypeInput.required = isOther;
+
+    if (!isOther) {
+        customTypeInput.value = "";
+    }
+}
+
 function render() {
     renderMetrics();
     renderAudit();
@@ -739,7 +768,7 @@ function render() {
 
     filtered.forEach((assignment) => {
         const node = template.content.firstElementChild.cloneNode(true);
-        node.querySelector(".pill").textContent = typeLabels[assignment.type];
+        node.querySelector(".pill").textContent = assignmentTypeLabel(assignment);
         const priority = node.querySelector(".priority");
         priority.textContent = `Prioridad ${assignment.priority}`;
         priority.classList.add(assignment.priority);
@@ -1036,7 +1065,7 @@ function progressValue() {
 function googleCalendarUrl(assignment) {
     const params = new URLSearchParams({
         action: "TEMPLATE",
-        text: `[${typeLabels[assignment.type]}] ${assignment.title}`,
+        text: `[${assignmentTypeLabel(assignment)}] ${assignment.title}`,
         dates: `${calendarDate(assignment.start)}/${calendarDate(assignment.end)}`,
         details: summaryText(assignment),
         location: assignment.place || "",
@@ -1062,7 +1091,7 @@ function downloadIcs(assignment) {
         `DTSTAMP:${calendarDate(new Date().toISOString())}`,
         `DTSTART:${calendarDate(assignment.start)}`,
         `DTEND:${calendarDate(assignment.end)}`,
-        `SUMMARY:${escapeIcs(`[${typeLabels[assignment.type]}] ${assignment.title}`)}`,
+        `SUMMARY:${escapeIcs(`[${assignmentTypeLabel(assignment)}] ${assignment.title}`)}`,
         `LOCATION:${escapeIcs(assignment.place || "")}`,
         `DESCRIPTION:${escapeIcs(summaryText(assignment))}`,
         assignment.email ? `ATTENDEE;CN=${escapeIcs(assignment.owner)}:MAILTO:${assignment.email}` : "",
@@ -1221,7 +1250,7 @@ function addAudit(action, assignment, detail) {
     function exportCsv() {
         const header = ["tipo", "titulo", "responsable_principal", "correo_responsable", "whatsapp", "departamento", "presentar_a", "responsables_adicionales", "correos_informados_solo_lectura", "estado", "avance", "dias_vencidos", "inicio", "fin", "lugar", "prioridad", "detalles"];
         const rows = visibleAssignments().map((item) => [
-            typeLabels[item.type],
+            assignmentTypeLabel(item),
             item.title,
             item.owner,
             item.email,
@@ -1247,7 +1276,7 @@ function addAudit(action, assignment, detail) {
         const rows = visibleAssignments()
             .map((item) => `
       <tr class="${overdueDays(item) > 0 ? "overdue" : ""}">
-        <td>${escapeHtml(typeLabels[item.type])}</td>
+        <td>${escapeHtml(assignmentTypeLabel(item))}</td>
         <td>${escapeHtml(item.title)}</td>
         <td>${escapeHtml(item.owner)}</td>
         <td>${escapeHtml(item.department)}</td>
@@ -1467,7 +1496,7 @@ function addAudit(action, assignment, detail) {
 
     function summaryText(assignment) {
         return [
-            `Tipo: ${typeLabels[assignment.type]}`,
+            `Tipo: ${assignmentTypeLabel(assignment)}`,
             `Titulo: ${assignment.title}`,
             `Responsable: ${assignment.owner}`,
             assignment.email ? `Correo: ${assignment.email}` : "",
