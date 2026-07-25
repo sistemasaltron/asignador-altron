@@ -99,14 +99,9 @@ textarea {
   font: inherit;
 }
 
-.field-hint {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
 #ownerSelect {
-  min-height: 120px;
+  min-height: 76px;
+  height: 76px;
 }
 
 .app-header {
@@ -306,6 +301,12 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   min-width: 0;
+  align-items: start;
+}
+
+.field-grid input,
+.field-grid select {
+  align-self: start;
 }
 
 .primary-button,
@@ -644,6 +645,66 @@ dd {
 
 .whatsapp-links {
   display: contents;
+}
+
+.history-card {
+  color: var(--muted);
+  opacity: 0.75;
+}
+
+.history-dialog {
+  width: min(680px, calc(100% - 32px));
+  max-height: min(620px, calc(100vh - 32px));
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.history-dialog::backdrop {
+  background: rgba(24, 33, 47, 0.42);
+}
+
+.history-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.history-dialog h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.history-list {
+  display: grid;
+  gap: 10px;
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.history-item {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.history-item span,
+.history-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.history-item p {
+  margin: 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 
 .small-button {
