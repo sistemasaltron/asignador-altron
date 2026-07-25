@@ -45,8 +45,6 @@ const departmentSelect = document.querySelector("#department");
 const ownerSelect = document.querySelector("#ownerSelect");
 const externalDepartment = document.querySelector("#externalDepartment");
 const externalPerson = document.querySelector("#externalPerson");
-const additionalDepartment = document.querySelector("#additionalDepartment");
-const additionalPerson = document.querySelector("#additionalPerson");
 const loginForm = document.querySelector("#loginForm");
 const changePasswordForm = document.querySelector("#changePasswordForm");
 const loginEmail = document.querySelector("#loginEmail");
@@ -70,6 +68,10 @@ const customTypeField = document.querySelector("#customTypeField");
 const customTypeInput = document.querySelector("#customType");
 const saveAssignmentButton = document.querySelector("#saveAssignmentButton");
 const cancelEditButton = document.querySelector("#cancelEditButton");
+const historyDialog = document.querySelector("#historyDialog");
+const historyTitle = document.querySelector("#historyTitle");
+const historyList = document.querySelector("#historyList");
+const closeHistoryButton = document.querySelector("#closeHistoryButton");
 const adminPanel = document.querySelector("#adminPanel");
 const adminToggle = document.querySelector("#adminToggle");
 const auditList = document.querySelector("#auditList");
@@ -136,8 +138,9 @@ exportCsvButton.addEventListener("click", exportCsv);
 reportButton.addEventListener("click", downloadTrackingReport);
 notifyButton.addEventListener("click", enableNotifications);
 docxInput.addEventListener("change", importDocxNotes);
-typeSelect.addEventListener("change", toggleCustomTypeField);
+typeSelect.addEventListener("change", handleTypeChange);
 cancelEditButton.addEventListener("click", finishEditing);
+closeHistoryButton.addEventListener("click", () => historyDialog.close());
 metrics.addEventListener("click", (event) => {
     const metricCard = event.target.closest(".metric");
     if (!metricCard) {
@@ -150,7 +153,6 @@ metrics.addEventListener("click", (event) => {
 departmentSelect.addEventListener("change", () => {
     populateResponsibleOptions();
     populateExternalDepartments();
-    populateAdditionalDepartments();
 });
 ownerSelect.addEventListener("change", () => {
     const selectedAll = [...ownerSelect.selectedOptions].some((option) => option.value === "__all__");
@@ -171,13 +173,6 @@ externalDepartment.addEventListener("change", () => {
 });
 externalPerson.addEventListener("change", () => {
     applyExternalShareSelection();
-});
-additionalDepartment.addEventListener("change", () => {
-    populateAdditionalPeople();
-});
-
-additionalPerson.addEventListener("change", () => {
-    applyAdditionalResponsibleSelection();
 });
 loginForm.addEventListener("submit", handleLogin);
 changePasswordForm.addEventListener("submit", handlePasswordChange);
@@ -498,36 +493,37 @@ function applyCurrentUserToUi() {
     departmentSelect.value = currentUser.department;
     populateResponsibleOptions();
     populateExternalDepartments();
-    populateAdditionalDepartments();
 }
 
 function populateResponsibleOptions(preferredEmail = "") {
     const department = departmentSelect.value;
-    const departmentUsers = users.filter((user) => user.department === department && user.email);
+    const activeUsers = users
+        .filter((user) => user.email)
+        .sort((a, b) => `${a.department} ${a.name}`.localeCompare(`${b.department} ${b.name}`));
     ownerSelect.innerHTML = "";
 
     const allOption = document.createElement("option");
     allOption.value = "__all__";
-    allOption.textContent = `Todos - ${department}`;
+    allOption.textContent = `Todos del departamento - ${department}`;
     ownerSelect.appendChild(allOption);
 
-    departmentUsers.forEach((user) => {
+    activeUsers.forEach((user) => {
         const option = document.createElement("option");
         option.value = user.email;
-        option.textContent = `${user.name} - ${user.role}`;
+        option.textContent = `${user.name} - ${user.department}`;
         ownerSelect.appendChild(option);
     });
 
     const preferredEmails = parseEmailList(preferredEmail);
     const matchingPreferred = preferredEmails.filter((email) =>
-        departmentUsers.some((user) => user.email.toLowerCase() === email)
+        activeUsers.some((user) => user.email.toLowerCase() === email)
     );
 
     if (matchingPreferred.length) {
         [...ownerSelect.options].forEach((option) => {
             option.selected = matchingPreferred.includes(option.value.toLowerCase());
         });
-    } else if (departmentUsers.some((user) => user.email === currentUser?.email)) {
+    } else if (activeUsers.some((user) => user.email === currentUser?.email)) {
         ownerSelect.value = currentUser.email;
     } else {
         ownerSelect.value = "__all__";
@@ -537,12 +533,13 @@ function populateResponsibleOptions(preferredEmail = "") {
 
 function applyResponsibleSelection() {
     const department = departmentSelect.value;
-    const departmentUsers = users.filter((user) => user.department === department && user.email);
+    const activeUsers = users.filter((user) => user.email);
+    const departmentUsers = activeUsers.filter((user) => user.department === department);
 
     const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
     const selectedUsers = selectedValues.includes("__all__")
         ? departmentUsers
-        : departmentUsers.filter((user) => selectedValues.includes(user.email));
+        : activeUsers.filter((user) => selectedValues.includes(user.email));
 
     document.querySelector("#email").value = selectedUsers
         .map((user) => user.email)
@@ -551,63 +548,6 @@ function applyResponsibleSelection() {
         .map((user) => user.phone)
         .filter(Boolean)
         .join(", ");
-}
-function populateAdditionalDepartments() {
-    const departments = [...new Set(users.map((user) => user.department))]
-        .filter((department) => department)
-        .sort((a, b) => a.localeCompare(b));
-
-    additionalDepartment.innerHTML = '<option value="">Seleccionar departamento del encargado</option>';
-
-    departments.forEach((department) => {
-        const option = document.createElement("option");
-        option.value = department;
-        option.textContent = department;
-        additionalDepartment.appendChild(option);
-    });
-
-    populateAdditionalPeople();
-}
-
-function populateAdditionalPeople() {
-    const department = additionalDepartment.value;
-    const departmentUsers = users.filter((user) => user.department === department && user.email);
-
-    additionalPerson.innerHTML = '<option value="">Seleccionar encargado adicional</option>';
-
-    if (!department) {
-        return;
-    }
-
-    const allOption = document.createElement("option");
-    allOption.value = "__all__";
-    allOption.textContent = `Agregar todos - ${department}`;
-    additionalPerson.appendChild(allOption);
-
-    departmentUsers.forEach((user) => {
-        const option = document.createElement("option");
-        option.value = user.email;
-        option.textContent = `${user.name} - ${user.role}`;
-        additionalPerson.appendChild(option);
-    });
-}
-
-function applyAdditionalResponsibleSelection() {
-    const department = additionalDepartment.value;
-    const selected = additionalPerson.value;
-
-    if (!department || !selected) {
-        return;
-    }
-
-    const selectedEmails = selected === "__all__"
-        ? users.filter((user) => user.department === department && user.email).map((user) => user.email)
-        : [selected];
-
-    const currentEmails = parseEmailList(document.querySelector("#additionalResponsible").value);
-    const merged = [...new Set([...currentEmails, ...selectedEmails.map((email) => email.toLowerCase())])];
-
-    document.querySelector("#additionalResponsible").value = merged.join(", ");
 }
 function populateExternalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
@@ -789,18 +729,32 @@ function logout() {
     changePasswordForm.classList.add("is-hidden");
 }
 
+function handleTypeChange() {
+    // Al salir de "Otro" se elimina el texto personalizado para que no contamine
+    // la siguiente actividad ni deje el formulario en un estado anterior.
+    if (typeSelect.value !== "otro") {
+        customTypeInput.value = "";
+    }
+    toggleCustomTypeField();
+}
+
+function setAssignmentType(type, customType = "") {
+    const knownType = Object.prototype.hasOwnProperty.call(typeLabels, type) ? type : "pendiente";
+    typeSelect.value = knownType;
+    customTypeInput.value = knownType === "otro" ? String(customType || "") : "";
+    toggleCustomTypeField();
+}
+
 function toggleCustomTypeField() {
     const isOther = typeSelect.value === "otro";
     customTypeField.classList.toggle("is-hidden", !isOther);
     customTypeInput.required = isOther;
-    if (!isOther) {
-        customTypeInput.value = "";
-    }
 }
 
 function resetAssignmentForm() {
     editingAssignmentId = null;
     form.reset();
+    setAssignmentType("visita");
     setDefaultDates();
     toggleCustomTypeField();
     saveAssignmentButton.textContent = "Guardar asignación";
@@ -819,14 +773,11 @@ function editAssignment(id) {
     }
 
     editingAssignmentId = id;
-    typeSelect.value = assignment.type || "pendiente";
-    customTypeInput.value = assignment.customType || "";
-    toggleCustomTypeField();
+    setAssignmentType(assignment.type || "pendiente", assignment.customType || "");
     document.querySelector("#title").value = assignment.title || "";
     departmentSelect.value = assignment.department || currentUser.department;
     populateResponsibleOptions(assignment.email || "");
     applyResponsibleSelection();
-    document.querySelector("#additionalResponsible").value = (assignment.additionalResponsible || []).join(", ");
     document.querySelector("#sharedWith").value = (assignment.sharedWith || []).join(", ");
     document.querySelector("#recipient").value = assignment.recipient || "";
     document.querySelector("#status").value = assignment.status || "pendiente";
@@ -863,7 +814,8 @@ function getFormData(previous = null) {
         phone: valueOf("#phone"),
         department: valueOf("#department"),
         recipient: valueOf("#recipient"),
-        additionalResponsible: parseEmailList(valueOf("#additionalResponsible")),
+        // Se conserva únicamente para no perder datos antiguos; ya no se edita desde el formulario.
+        additionalResponsible: previous?.additionalResponsible || [],
         sharedWith: parseEmailList(valueOf("#sharedWith")),
         status: valueOf("#status"),
         start: valueOf("#start"),
@@ -884,12 +836,11 @@ function getFormData(previous = null) {
 
 function ownerNameFromSelection() {
     const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
-    const departmentUsers = users.filter((user) =>
-        user.department === departmentSelect.value && user.email
-    );
+    const activeUsers = users.filter((user) => user.email);
+    const departmentUsers = activeUsers.filter((user) => user.department === departmentSelect.value);
     const selectedUsers = selectedValues.includes("__all__")
         ? departmentUsers
-        : departmentUsers.filter((user) => selectedValues.includes(user.email));
+        : activeUsers.filter((user) => selectedValues.includes(user.email));
 
     return selectedUsers.map((user) => user.name).join(", ") || "Sin encargado seleccionado";
 }
@@ -919,7 +870,6 @@ function render() {
         node.querySelector('[data-field="owner"]').textContent = emailLabel(assignment);
         node.querySelector('[data-field="createdBy"]').textContent = creatorLabel(assignment);
         node.querySelector('[data-field="recipient"]').textContent = assignment.recipient || "Por definir";
-        node.querySelector('[data-field="additionalResponsible"]').textContent = (assignment.additionalResponsible || []).join(", ") || "Sin responsables adicionales";
         node.querySelector('[data-field="sharedWith"]').textContent = (assignment.sharedWith || []).join(", ") || "Sin correos informados";
         node.querySelector('[data-field="department"]').textContent = assignment.department;
         node.querySelector('[data-field="date"]').textContent = dateRange(assignment);
@@ -997,6 +947,8 @@ function render() {
         } else {
             editButton.remove();
         }
+        const historyButton = node.querySelector(".history-card");
+        historyButton.addEventListener("click", () => showAssignmentHistory(assignment));
         const deleteButton = node.querySelector(".delete-card");
 
         if (isSystemsAdmin()) {
@@ -1017,6 +969,32 @@ function render() {
         });
         cards.appendChild(node);
     });
+}
+
+function showAssignmentHistory(assignment) {
+    const entries = auditLog
+        .filter((entry) => entry.taskId === assignment.id)
+        .sort((a, b) => new Date(b.at) - new Date(a.at));
+
+    historyTitle.textContent = assignment.title || "Historial de la tarea";
+
+    if (!entries.length) {
+        historyList.innerHTML = '<p class="history-empty">Todavía no hay cambios registrados para esta tarea.</p>';
+    } else {
+        historyList.innerHTML = entries.map((entry) => `
+            <article class="history-item">
+                <strong>${escapeHtml(entry.action || "Cambio")}</strong>
+                <span>${escapeHtml(entry.userName || entry.userEmail || "Usuario")} · ${escapeHtml(formatDate(entry.at))}</span>
+                <p>${escapeHtml(entry.detail || "Sin detalle registrado.")}</p>
+            </article>
+        `).join("");
+    }
+
+    if (typeof historyDialog.showModal === "function") {
+        historyDialog.showModal();
+    } else {
+        historyDialog.setAttribute("open", "");
+    }
 }
 
 async function registerAppShell() {
@@ -1731,7 +1709,6 @@ function addAudit(action, assignment, detail) {
             assignment.phone ? `WhatsApp: ${assignment.phone}` : "",
             `Departamento: ${assignment.department}`,
             assignment.recipient ? `Presentar a: ${assignment.recipient}` : "",
-            assignment.additionalResponsible?.length ? `Responsables adicionales: ${assignment.additionalResponsible.join(", ")}` : "",
             assignment.sharedWith?.length ? `Correos informados / solo lectura: ${assignment.sharedWith.join(", ")}` : "",
             `Estado: ${assignment.status}`,
             `Avance: ${normalizedProgress(assignment)}%`,
