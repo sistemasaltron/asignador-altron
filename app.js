@@ -1,5 +1,6 @@
 const STORAGE_KEY = "asignador-comercial-v1";
 const USER_KEY = "asignador-usuario-activo";
+const USERS_CACHE_KEY = "asignador-usuarios-cache-v2";
 const AUDIT_KEY = "asignador-auditoria-v1";
 const PASSWORD_KEY = "asignador-passwords-v1";
 const DEFAULT_PASSWORD = "Altron2026..";
@@ -24,12 +25,14 @@ const typeLabels = {
 };
 
 function assignmentTypeLabel(assignment) {
+    if (!assignment) {
+        return "Tarea";
+    }
     if (assignment.type === "otro") {
         return String(assignment.customType || "Otro").trim() || "Otro";
     }
-
-    return assignmentTypeLabel(assignment) || "Tarea";
-};
+    return typeLabels[assignment.type] || "Tarea";
+}
 
 const form = document.querySelector("#assignmentForm");
 const cards = document.querySelector("#cards");
@@ -65,6 +68,8 @@ const importResults = document.querySelector("#importResults");
 const typeSelect = document.querySelector("#type");
 const customTypeField = document.querySelector("#customTypeField");
 const customTypeInput = document.querySelector("#customType");
+const saveAssignmentButton = document.querySelector("#saveAssignmentButton");
+const cancelEditButton = document.querySelector("#cancelEditButton");
 const adminPanel = document.querySelector("#adminPanel");
 const adminToggle = document.querySelector("#adminToggle");
 const auditList = document.querySelector("#auditList");
@@ -78,26 +83,31 @@ let currentUser = null;
 let metricFilter = "todos";
 let auditExpanded = false;
 let selectedAssignmentId = null;
+let editingAssignmentId = null;
 
 initializeAuth();
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const data = getFormData();
+    const previous = editingAssignmentId ? assignments.find((item) => item.id === editingAssignmentId) : null;
+    const data = getFormData(previous);
     if (new Date(data.end) <= new Date(data.start)) {
         alert("La fecha de fin debe ser posterior a la fecha de inicio.");
         return;
     }
-    assignments = [data, ...assignments];
-    addAudit("creo", data, `Creo tarea para ${data.department}`);
+    if (editingAssignmentId) {
+        assignments = assignments.map((item) => item.id === editingAssignmentId ? data : item);
+        addAudit("actualizo", data, describeAssignmentChanges(previous, data));
+        await saveAssignment(data);
+        finishEditing();
+    } else {
+        assignments = [data, ...assignments];
+        addAudit("creo", data, `Creó tarea para ${data.department}`);
+        await saveAssignment(data);
+        await sendAssignmentEmail(data);
+        resetAssignmentForm();
+    }
 
-    await saveAssignment(data);
-    await sendAssignmentEmail(data);
-
-    console.log("Asignación enviada a Google Sheets.");
-
-    form.reset();
-    setDefaultDates();
     render();
 });
 
@@ -127,6 +137,7 @@ reportButton.addEventListener("click", downloadTrackingReport);
 notifyButton.addEventListener("click", enableNotifications);
 docxInput.addEventListener("change", importDocxNotes);
 typeSelect.addEventListener("change", toggleCustomTypeField);
+cancelEditButton.addEventListener("click", finishEditing);
 metrics.addEventListener("click", (event) => {
     const metricCard = event.target.closest(".metric");
     if (!metricCard) {
@@ -142,6 +153,17 @@ departmentSelect.addEventListener("change", () => {
     populateAdditionalDepartments();
 });
 ownerSelect.addEventListener("change", () => {
+    const selectedAll = [...ownerSelect.selectedOptions].some((option) => option.value === "__all__");
+    if (selectedAll) {
+        [...ownerSelect.options].forEach((option) => {
+            option.selected = option.value === "__all__";
+        });
+    } else {
+        const allOption = [...ownerSelect.options].find((option) => option.value === "__all__");
+        if (allOption) {
+            allOption.selected = false;
+        }
+    }
     applyResponsibleSelection();
 });
 externalDepartment.addEventListener("change", () => {
@@ -207,6 +229,7 @@ async function syncFromCloud() {
                     active: user.active !== false
                 }))
                 .filter((user) => user.active !== false);
+            saveUsersCache();
 
             const refreshedUser = users.find((user) => user.email === currentUser.email);
             if (refreshedUser) {
@@ -282,17 +305,15 @@ async function cloudPost(action, payload = {}) {
     }
 
     try {
-        console.log("Enviando a Google Sheets:", action, payload);
-
-        cloudGet(action, {
-            payload: JSON.stringify(payload)
-        }).then((response) => {
-            console.log("Guardado confirmado por Google Sheets:", action, response);
-        }).catch((error) => {
-            console.warn("No se pudo confirmar guardado en Google Sheets:", action, error);
+        const requestPayload = {
+            ...payload,
+            actorEmail: currentUser?.email || payload.actorEmail || ""
+        };
+        const response = await cloudGet(action, {
+            payload: JSON.stringify(requestPayload)
         });
-
-        return { ok: true, pending: true };
+        console.log("Guardado confirmado por Google Sheets:", action, response);
+        return { ...response, ok: response?.ok !== false };
     } catch (error) {
         console.error("No se pudo iniciar guardado en Google Sheets:", action, error);
         return { ok: false, error: error.message || String(error) };
@@ -368,8 +389,22 @@ async function saveAuditEntry(auditEntry) {
 }
 
 function readCurrentUser() {
-    const storedEmail = String(localStorage.getItem(USER_KEY) || "").trim().toLowerCase();
+    const rawSession = localStorage.getItem(USER_KEY) || "";
+    let storedEmail = rawSession;
+    try {
+        const session = JSON.parse(rawSession);
+        storedEmail = session?.email || rawSession;
+    } catch {
+        // Compatibilidad con sesiones antiguas que guardaban solo el correo.
+    }
+    storedEmail = String(storedEmail).trim().toLowerCase();
     return users.find((user) => String(user.email || "").trim().toLowerCase() === storedEmail && user.active !== false) || null;
+}
+
+function saveCurrentUserSession(email) {
+    localStorage.setItem(USER_KEY, JSON.stringify({
+        email: String(email || "").trim().toLowerCase()
+    }));
 }
 
 function readPasswordStore() {
@@ -400,12 +435,14 @@ async function initializeAuth() {
     loginForm.classList.remove("is-hidden");
     changePasswordForm.classList.add("is-hidden");
 
-    authMessage.textContent = CLOUD_ENABLED ? "" : "Google no está activo. Revisa la URL de Apps Script.";
+    authMessage.textContent = CLOUD_ENABLED
+        ? ""
+        : (users.length ? "Modo offline: usando la copia local." : "No hay usuarios locales. Conecta Google para iniciar la primera sesión.");
 }
 
 async function loadUsersFromCloud() {
     if (!CLOUD_ENABLED) {
-        users = [];
+        users = readUsersCache();
         return;
     }
 
@@ -422,6 +459,7 @@ async function loadUsersFromCloud() {
                     active: user.active !== false
                 }))
                 .filter((user) => user.active !== false);
+            saveUsersCache();
         }
 
         if (!users.length) {
@@ -429,9 +467,24 @@ async function loadUsersFromCloud() {
         }
     } catch (error) {
         console.warn("No se pudieron cargar usuarios desde Google.", error);
-        authMessage.textContent = "No se pudieron cargar usuarios desde Google. Revisa Apps Script.";
-        users = [];
+        users = readUsersCache();
+        authMessage.textContent = users.length
+            ? "Google no está disponible. Se utilizará la copia local."
+            : "No se pudieron cargar usuarios desde Google. Revisa Apps Script.";
     }
+}
+
+function readUsersCache() {
+    try {
+        return JSON.parse(localStorage.getItem(USERS_CACHE_KEY) || "[]")
+            .filter((user) => user && user.email && user.active !== false);
+    } catch {
+        return [];
+    }
+}
+
+function saveUsersCache() {
+    localStorage.setItem(USERS_CACHE_KEY, JSON.stringify(users));
 }
 
 function applyCurrentUserToUi() {
@@ -465,8 +518,15 @@ function populateResponsibleOptions(preferredEmail = "") {
         ownerSelect.appendChild(option);
     });
 
-    if (preferredEmail && departmentUsers.some((user) => user.email.toLowerCase() === preferredEmail.toLowerCase())) {
-        ownerSelect.value = preferredEmail;
+    const preferredEmails = parseEmailList(preferredEmail);
+    const matchingPreferred = preferredEmails.filter((email) =>
+        departmentUsers.some((user) => user.email.toLowerCase() === email)
+    );
+
+    if (matchingPreferred.length) {
+        [...ownerSelect.options].forEach((option) => {
+            option.selected = matchingPreferred.includes(option.value.toLowerCase());
+        });
     } else if (departmentUsers.some((user) => user.email === currentUser?.email)) {
         ownerSelect.value = currentUser.email;
     } else {
@@ -479,22 +539,25 @@ function applyResponsibleSelection() {
     const department = departmentSelect.value;
     const departmentUsers = users.filter((user) => user.department === department && user.email);
 
-    if (ownerSelect.value === "__all__") {
-        document.querySelector("#email").value = departmentUsers.map((user) => user.email).join(", ");
-        document.querySelector("#phone").value = departmentUsers.map((user) => user.phone).filter(Boolean).join(", ");
-        return;
-    }
+    const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
+    const selectedUsers = selectedValues.includes("__all__")
+        ? departmentUsers
+        : departmentUsers.filter((user) => selectedValues.includes(user.email));
 
-    const selectedUser = users.find((user) => user.email === ownerSelect.value);
-    document.querySelector("#email").value = selectedUser?.email || "";
-    document.querySelector("#phone").value = selectedUser?.phone || "";
+    document.querySelector("#email").value = selectedUsers
+        .map((user) => user.email)
+        .join(", ");
+    document.querySelector("#phone").value = selectedUsers
+        .map((user) => user.phone)
+        .filter(Boolean)
+        .join(", ");
 }
 function populateAdditionalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
         .filter((department) => department)
         .sort((a, b) => a.localeCompare(b));
 
-    additionalDepartment.innerHTML = '<option value="">Seleccionar departamento del responsable</option>';
+    additionalDepartment.innerHTML = '<option value="">Seleccionar departamento del encargado</option>';
 
     departments.forEach((department) => {
         const option = document.createElement("option");
@@ -510,7 +573,7 @@ function populateAdditionalPeople() {
     const department = additionalDepartment.value;
     const departmentUsers = users.filter((user) => user.department === department && user.email);
 
-    additionalPerson.innerHTML = '<option value="">Seleccionar responsable adicional</option>';
+    additionalPerson.innerHTML = '<option value="">Seleccionar encargado adicional</option>';
 
     if (!department) {
         return;
@@ -613,9 +676,17 @@ async function handleLogin(event) {
 
     const record = await readPasswordRecord(email);
 
-    if (password !== record.password) {
+    const validPassword = await verifyPassword(password, record);
+    if (!validPassword) {
         authMessage.textContent = "Clave incorrecta.";
         return;
+    }
+
+    if (record.password && password !== DEFAULT_PASSWORD) {
+        const migratedRecord = await createPasswordRecord(password, record.mustChange !== false);
+        passwordStore[email] = migratedRecord;
+        savePasswordStore();
+    await cloudPost("setPassword", { email, record: migratedRecord, actorEmail: email });
     }
 
     if (record.mustChange || password === DEFAULT_PASSWORD) {
@@ -628,7 +699,7 @@ async function handleLogin(event) {
     }
 
     currentUser = user;
-    localStorage.setItem(USER_KEY, currentUser.email);
+    saveCurrentUserSession(currentUser.email);
     openApp();
 }
 
@@ -645,13 +716,13 @@ async function handlePasswordChange(event) {
         return;
     }
     const email = pendingPasswordUser.email.toLowerCase();
-    const record = { password, mustChange: false, changedAt: new Date().toISOString() };
+    const record = await createPasswordRecord(password, false);
     passwordStore[email] = record;
     savePasswordStore();
-    await cloudPost("setPassword", { email, record });
+    await cloudPost("setPassword", { email, record, actorEmail: email });
     currentUser = pendingPasswordUser;
     pendingPasswordUser = null;
-    localStorage.setItem(USER_KEY, currentUser.email);
+    saveCurrentUserSession(currentUser.email);
     openApp();
 }
 
@@ -662,17 +733,42 @@ async function handleForgotPassword() {
         authMessage.textContent = "Escribe primero un correo registrado.";
         return;
     }
-    const record = { password: DEFAULT_PASSWORD, mustChange: true, resetAt: new Date().toISOString() };
+    const record = await createPasswordRecord(DEFAULT_PASSWORD, true);
     passwordStore[email] = record;
     savePasswordStore();
-    await cloudPost("setPassword", { email, record });
+    await cloudPost("setPassword", { email, record, actorEmail: email });
     const subject = "Recuperacion clave Asignador Altron";
     const body = `Hola ${user.name},\n\nTu clave temporal es: ${DEFAULT_PASSWORD}\n\nAl ingresar, la aplicacion te pedira cambiarla obligatoriamente.`;
     window.location.href = `mailto:${email}?${new URLSearchParams({ subject, body }).toString()}`;
     authMessage.textContent = "Se preparo el correo de recuperacion con la clave temporal.";
 }
 
+async function createPasswordRecord(password, mustChange = false) {
+    const salt = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const hash = await hashPassword(password, salt);
+    return { hash, salt, mustChange, changedAt: new Date().toISOString() };
+}
+
+async function hashPassword(password, salt) {
+    if (!crypto?.subtle) {
+        throw new Error("El navegador no permite cifrado seguro. Abre la aplicación desde HTTPS.");
+    }
+    const data = new TextEncoder().encode(`${salt}:${password}`);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function verifyPassword(password, record) {
+    if (record?.hash && record?.salt) {
+        return (await hashPassword(password, record.salt)) === record.hash;
+    }
+    return String(password) === String(record?.password || "");
+}
+
 function openApp() {
+    if (currentUser) {
+        saveCurrentUserSession(currentUser.email);
+    }
     document.body.classList.add("authenticated");
     loginForm.classList.add("is-hidden");
     changePasswordForm.classList.add("is-hidden");
@@ -693,6 +789,58 @@ function logout() {
     changePasswordForm.classList.add("is-hidden");
 }
 
+function toggleCustomTypeField() {
+    const isOther = typeSelect.value === "otro";
+    customTypeField.classList.toggle("is-hidden", !isOther);
+    customTypeInput.required = isOther;
+    if (!isOther) {
+        customTypeInput.value = "";
+    }
+}
+
+function resetAssignmentForm() {
+    editingAssignmentId = null;
+    form.reset();
+    setDefaultDates();
+    toggleCustomTypeField();
+    saveAssignmentButton.textContent = "Guardar asignación";
+    cancelEditButton.classList.add("is-hidden");
+}
+
+function finishEditing() {
+    resetAssignmentForm();
+}
+
+function editAssignment(id) {
+    const assignment = assignments.find((item) => item.id === id);
+    if (!assignment || !canEditAssignment(assignment)) {
+        alert("No tienes permisos para editar esta tarea.");
+        return;
+    }
+
+    editingAssignmentId = id;
+    typeSelect.value = assignment.type || "pendiente";
+    customTypeInput.value = assignment.customType || "";
+    toggleCustomTypeField();
+    document.querySelector("#title").value = assignment.title || "";
+    departmentSelect.value = assignment.department || currentUser.department;
+    populateResponsibleOptions(assignment.email || "");
+    applyResponsibleSelection();
+    document.querySelector("#additionalResponsible").value = (assignment.additionalResponsible || []).join(", ");
+    document.querySelector("#sharedWith").value = (assignment.sharedWith || []).join(", ");
+    document.querySelector("#recipient").value = assignment.recipient || "";
+    document.querySelector("#status").value = assignment.status || "pendiente";
+    document.querySelector("#start").value = assignment.start || "";
+    document.querySelector("#end").value = assignment.end || "";
+    document.querySelector("#place").value = assignment.place || "";
+    document.querySelector("#priority").value = assignment.priority || "media";
+    document.querySelector("#progress").value = normalizedProgress(assignment);
+    document.querySelector("#notes").value = assignment.notes || "";
+    saveAssignmentButton.textContent = "Guardar cambios";
+    cancelEditButton.classList.remove("is-hidden");
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function setDefaultDates() {
     const start = new Date();
     start.setMinutes(0, 0, 0);
@@ -703,13 +851,12 @@ function setDefaultDates() {
     document.querySelector("#end").value = toLocalInputValue(end);
 }
 
-function getFormData() {
+function getFormData(previous = null) {
+    const selectedType = valueOf("#type");
     return {
-        id: createId(),
-        type: valueOf("#type"),
-        customType: valueOf("#type") === "otro"
-        ? valueOf("#customType")
-        : "",
+        id: previous?.id || createId(),
+        type: selectedType,
+        customType: selectedType === "otro" ? valueOf("#customType") : "",
         title: valueOf("#title"),
         owner: ownerNameFromSelection(),
         email: valueOf("#email"),
@@ -725,34 +872,30 @@ function getFormData() {
         priority: valueOf("#priority"),
         progress: progressValue(),
         notes: valueOf("#notes"),
-        createdBy: currentUser.email,
-        createdByName: currentUser.name,
-        createdByDepartment: currentUser.department,
-        createdAt: new Date().toISOString(),
-        followUps: []
+        createdAt: previous?.createdAt || new Date().toISOString(),
+        createdBy: previous?.createdBy || currentUser.email,
+        createdByName: previous?.createdByName || currentUser.name,
+        createdByDepartment: previous?.createdByDepartment || currentUser.department,
+        updatedAt: new Date().toISOString(),
+        updatedBy: currentUser.email,
+        followUps: previous?.followUps || []
     };
 }
 
 function ownerNameFromSelection() {
-    if (ownerSelect.value === "__all__") {
-        return `Todos - ${departmentSelect.value}`;
-    }
-    return users.find((user) => user.email === ownerSelect.value)?.name || "";
+    const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
+    const departmentUsers = users.filter((user) =>
+        user.department === departmentSelect.value && user.email
+    );
+    const selectedUsers = selectedValues.includes("__all__")
+        ? departmentUsers
+        : departmentUsers.filter((user) => selectedValues.includes(user.email));
+
+    return selectedUsers.map((user) => user.name).join(", ") || "Sin encargado seleccionado";
 }
 
 function valueOf(selector) {
     return document.querySelector(selector).value.trim();
-}
-
-function toggleCustomTypeField() {
-    const isOther = typeSelect.value === "otro";
-
-    customTypeField.classList.toggle("is-hidden", !isOther);
-    customTypeInput.required = isOther;
-
-    if (!isOther) {
-        customTypeInput.value = "";
-    }
 }
 
 function render() {
@@ -829,9 +972,31 @@ function render() {
         followUpBox.append(followUpTitle, followUpList, followUpTextarea, followUpButton);
         node.querySelector(".notes").after(followUpBox);
         node.querySelector(".calendar-link").href = googleCalendarUrl(assignment);
-        node.querySelector(".whatsapp-link").href = whatsappUrl(assignment);
+        const whatsappContainer = node.querySelector(".whatsapp-links");
+        const phones = parsePhoneList(assignment.phone);
+        if (phones.length) {
+            phones.forEach((phone, index) => {
+                const whatsappLink = document.createElement("a");
+                whatsappLink.className = "small-button whatsapp-link";
+                whatsappLink.target = "_blank";
+                whatsappLink.rel = "noreferrer";
+                whatsappLink.href = whatsappUrl(assignment, phone);
+                whatsappLink.textContent = phones.length > 1
+                    ? `WhatsApp ${index + 1}`
+                    : "Enviar WhatsApp";
+                whatsappContainer.appendChild(whatsappLink);
+            });
+        } else {
+            whatsappContainer.textContent = "Sin WhatsApp";
+        }
         node.querySelector(".download-ics").addEventListener("click", () => downloadIcs(assignment));
         node.querySelector(".copy-summary").addEventListener("click", () => copySummary(assignment));
+        const editButton = node.querySelector(".edit-card");
+        if (canEditAssignment(assignment)) {
+            editButton.addEventListener("click", () => editAssignment(assignment.id));
+        } else {
+            editButton.remove();
+        }
         const deleteButton = node.querySelector(".delete-card");
 
         if (isSystemsAdmin()) {
@@ -902,10 +1067,10 @@ function showDueNotifications(force) {
         }
         const due = daysUntilDue(assignment);
         const body = due < 0
-            ? `${Math.abs(due)} dia(s) vencida. Responsable: ${assignment.owner}.`
+            ? `${Math.abs(due)} dia(s) vencida. Encargado(s): ${assignment.owner}.`
             : due === 0
-                ? `Vence hoy. Responsable: ${assignment.owner}.`
-                : `Vence en ${due} dia(s). Responsable: ${assignment.owner}.`;
+                ? `Vence hoy. Encargado(s): ${assignment.owner}.`
+                : `Vence en ${due} dia(s). Encargado(s): ${assignment.owner}.`;
         new Notification(assignment.title, {
             body,
             icon: "assets/logo-altron.png",
@@ -923,6 +1088,7 @@ function filteredAssignments() {
     return assignments.filter((assignment) => {
         const text = [
             assignment.title,
+            assignment.customType,
             assignment.owner,
             assignment.email,
             assignment.phone,
@@ -1019,6 +1185,13 @@ function canViewAssignment(assignment) {
         || sharedEmails.includes(userEmail);
 }
 
+function canEditAssignment(assignment) {
+    if (isSystemsAdmin()) {
+        return true;
+    }
+    return String(assignment.createdBy || "").trim().toLowerCase() === currentUser.email.toLowerCase();
+}
+
 function visibleAssignments() {
     return assignments.filter(canViewAssignment);
 }
@@ -1074,11 +1247,18 @@ function googleCalendarUrl(assignment) {
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
-function whatsappUrl(assignment) {
-    const phone = (assignment.phone || "").replace(/\D/g, "");
+function whatsappUrl(assignment, selectedPhone = "") {
+    const phone = String(selectedPhone || assignment.phone || "").replace(/\D/g, "");
     const text = `${summaryText(assignment)}\n\nAgregar a Google Calendar:\n${googleCalendarUrl(assignment)}`;
     const params = new URLSearchParams({ text });
     return phone ? `https://wa.me/${phone}?${params.toString()}` : `https://wa.me/?${params.toString()}`;
+}
+
+function parsePhoneList(value) {
+    return String(value || "")
+        .split(",")
+        .map((phone) => phone.trim())
+        .filter(Boolean);
 }
 
 function downloadIcs(assignment) {
@@ -1094,7 +1274,9 @@ function downloadIcs(assignment) {
         `SUMMARY:${escapeIcs(`[${assignmentTypeLabel(assignment)}] ${assignment.title}`)}`,
         `LOCATION:${escapeIcs(assignment.place || "")}`,
         `DESCRIPTION:${escapeIcs(summaryText(assignment))}`,
-        assignment.email ? `ATTENDEE;CN=${escapeIcs(assignment.owner)}:MAILTO:${assignment.email}` : "",
+        ...parseEmailList(assignment.email || "").map((email) =>
+            `ATTENDEE;CN=${escapeIcs(assignment.owner)}:MAILTO:${email}`
+        ),
         ...(assignment.additionalResponsible || []).map((email) => `ATTENDEE;CN=Responsable adicional:MAILTO:${email}`),
         "END:VEVENT",
         "END:VCALENDAR"
@@ -1143,7 +1325,8 @@ async function updateAssignment(id, changes, action = "actualizo") {
     );
 
     if (target) {
-        addAudit(action, { ...target, ...changes }, `${action} en ${target.department}`);
+        const changed = { ...target, ...changes };
+        addAudit(action, changed, describeAssignmentChanges(target, changed));
     }
 
     const updatedAssignment = assignments.find((assignment) => assignment.id === id);
@@ -1154,6 +1337,51 @@ async function updateAssignment(id, changes, action = "actualizo") {
 
     render();
 }
+
+function describeAssignmentChanges(previous, current) {
+    if (!previous) {
+        return "Se creó la asignación.";
+    }
+
+    const labels = {
+        type: "tipo",
+        customType: "tipo personalizado",
+        title: "título",
+        owner: "encargado(s) de realizar",
+        email: "correos de encargados",
+        phone: "teléfonos",
+        department: "departamento",
+        recipient: "presentar a",
+        additionalResponsible: "responsables adicionales",
+        sharedWith: "personas informadas",
+        status: "estado",
+        start: "inicio",
+        end: "fin",
+        place: "lugar",
+        priority: "prioridad",
+        progress: "avance",
+        notes: "detalles"
+    };
+
+    const changes = Object.keys(labels).reduce((result, key) => {
+        const before = Array.isArray(previous[key])
+            ? previous[key].join(", ")
+            : String(previous[key] ?? "");
+        const after = Array.isArray(current[key])
+            ? current[key].join(", ")
+            : String(current[key] ?? "");
+
+        if (before !== after) {
+            result.push(`${labels[key]}: "${before || "vacío"}" → "${after || "vacío"}"`);
+        }
+        return result;
+    }, []);
+
+    return changes.length
+        ? `Cambios realizados: ${changes.join("; ")}`
+        : "Se abrió y guardó la asignación sin cambios de campos.";
+}
+
 async function saveFollowUp(id, text) {
     const cleanText = String(text || "").trim();
 
@@ -1311,7 +1539,7 @@ function addAudit(action, assignment, detail) {
   <table>
     <thead>
       <tr>
-        <th>Tipo</th><th>Tarea</th><th>Responsable</th><th>Departamento</th><th>Presentar a</th><th>Estado</th><th>Avance</th><th>Vencimiento</th><th>Fecha limite</th><th>Lugar</th>
+        <th>Tipo</th><th>Tarea</th><th>Encargado(s)</th><th>Departamento</th><th>Presentar a</th><th>Estado</th><th>Avance</th><th>Vencimiento</th><th>Fecha limite</th><th>Lugar</th>
       </tr>
     </thead>
     <tbody>${rows || '<tr><td colspan="10">Sin asignaciones.</td></tr>'}</tbody>
@@ -1498,7 +1726,7 @@ function addAudit(action, assignment, detail) {
         return [
             `Tipo: ${assignmentTypeLabel(assignment)}`,
             `Titulo: ${assignment.title}`,
-            `Responsable: ${assignment.owner}`,
+            `Encargado(s) de realizar: ${assignment.owner}`,
             assignment.email ? `Correo: ${assignment.email}` : "",
             assignment.phone ? `WhatsApp: ${assignment.phone}` : "",
             `Departamento: ${assignment.department}`,
