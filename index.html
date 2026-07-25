@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="assets/logo-altron.png">
     <link rel="apple-touch-icon" href="assets/logo-altron.png">
-    <link rel="stylesheet" href="styles.css?v=admin-3">
+    <link rel="stylesheet" href="styles.css?v=admin-5">
 </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -144,36 +144,16 @@
             <div class="field-grid">
                 <label>
                     Encargado(s) de realizar la tarea
-                    <select id="ownerSelect" required multiple size="5"></select>
-                    <small class="field-hint">Puedes seleccionar varias personas con Ctrl o haciendo clic en varias opciones.</small>
+                    <select id="ownerSelect" required multiple size="3"></select>
                 </label>
                 <label>
-                    Correo Google
+                    Correo(s) Google de encargados
                     <input id="email" type="text" placeholder="persona@empresa.com" readonly>
                 </label>
             </div>
-            <div class="field-grid">
-                <label>
-                    Departamento de encargados adicionales
-                    <select id="additionalDepartment">
-                        <option value="">Seleccionar departamento del encargado</option>
-                    </select>
-                </label>
-                <label>
-                    Encargado adicional
-                    <select id="additionalPerson">
-                        <option value="">Seleccionar encargado adicional</option>
-                    </select>
-                </label>
-            </div>
-
             <label>
-                Encargados adicionales
-                <input id="additionalResponsible" type="text" placeholder="Correos de otras personas que participarán, separados por coma">
-            </label>
-            <label>
-                WhatsApp
-                <input id="phone" type="tel" placeholder="Ej. 573001234567" readonly>
+                WhatsApp de los encargados
+                <input id="phone" type="tel" placeholder="Se llenan automáticamente" readonly>
             </label>
 
             <label>
@@ -301,7 +281,6 @@
         <h3></h3>
         <dl>
             <div><dt>Encargado(s) de realizar</dt><dd data-field="owner"></dd></div>
-            <div><dt>Responsables adicionales</dt><dd data-field="additionalResponsible"></dd></div>
             <div><dt>Responsable que agenda</dt><dd data-field="createdBy"></dd></div>
             <div><dt>Presentar a</dt><dd data-field="recipient"></dd></div>
             <div><dt>Informados / solo lectura</dt><dd data-field="sharedWith"></dd></div>
@@ -336,12 +315,24 @@
           <button class="small-button download-ics" type="button">.ics</button>
           <button class="small-button copy-summary" type="button">Copiar</button>
           <button class="small-button edit-card" type="button">Editar</button>
+          <button class="small-button history-card" type="button" title="Ver historial de cambios">Historial</button>
           <button class="small-button danger delete-card" type="button">Eliminar</button>
         </div>
       </article>
     </template>
 
+    <dialog id="historyDialog" class="history-dialog">
+      <div class="history-dialog-header">
+        <div>
+          <p class="eyebrow">Registro de cambios</p>
+          <h2 id="historyTitle">Historial de la tarea</h2>
+        </div>
+        <button class="small-button" id="closeHistoryButton" type="button">Cerrar</button>
+      </div>
+      <div id="historyList" class="history-list"></div>
+    </dialog>
+
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="app.js?v=admin-3"></script>
+    <script src="app.js?v=admin-5"></script>
   </body>
 </html>
