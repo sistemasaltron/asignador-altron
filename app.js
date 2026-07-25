@@ -43,6 +43,7 @@ const sessionDescription = document.querySelector("#sessionDescription");
 const sessionPill = document.querySelector("#sessionPill");
 const departmentSelect = document.querySelector("#department");
 const ownerSelect = document.querySelector("#ownerSelect");
+const selectedOwners = document.querySelector("#selectedOwners");
 const externalDepartment = document.querySelector("#externalDepartment");
 const externalPerson = document.querySelector("#externalPerson");
 const loginForm = document.querySelector("#loginForm");
@@ -168,6 +169,19 @@ ownerSelect.addEventListener("change", () => {
     }
     applyResponsibleSelection();
 });
+selectedOwners.addEventListener("click", (event) => {
+    const removeButton = event.target.closest("[data-remove-owner]");
+    if (!removeButton) {
+        return;
+    }
+    const email = removeButton.dataset.removeOwner;
+    [...ownerSelect.options].forEach((option) => {
+        if (option.value === email || option.value === "__all__") {
+            option.selected = false;
+        }
+    });
+    applyResponsibleSelection();
+});
 externalDepartment.addEventListener("change", () => {
     populateExternalPeople();
 });
@@ -233,13 +247,36 @@ async function syncFromCloud() {
         }
 
         if (Array.isArray(response.assignments)) {
-            assignments = response.assignments;
+            const localAssignments = readAssignments();
+            const remoteIds = new Set(response.assignments.map((item) => String(item.id)));
+            const localOnlyAssignments = localAssignments.filter((item) => !remoteIds.has(String(item.id)));
+            assignments = [...response.assignments, ...localOnlyAssignments];
             localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+
+            // Migra a Google las tareas antiguas que estaban solo en este navegador.
+            await Promise.all(localOnlyAssignments.map(async (assignment) => {
+                try {
+                    await saveAssignment(assignment);
+                } catch (error) {
+                    console.warn("No se pudo migrar una tarea local a Google.", error);
+                }
+            }));
         }
 
         if (Array.isArray(response.auditLog)) {
-            auditLog = response.auditLog;
+            const localAudit = readAuditLog();
+            const remoteAuditIds = new Set(response.auditLog.map((entry) => String(entry.id)));
+            const localOnlyAudit = localAudit.filter((entry) => !remoteAuditIds.has(String(entry.id)));
+            auditLog = [...response.auditLog, ...localOnlyAudit].slice(0, 200);
             localStorage.setItem(AUDIT_KEY, JSON.stringify(auditLog));
+
+            await Promise.all(localOnlyAudit.map(async (entry) => {
+                try {
+                    await saveAuditEntry(entry);
+                } catch (error) {
+                    console.warn("No se pudo migrar un registro local de auditoría.", error);
+                }
+            }));
         }
 
         sessionPill.textContent = isSystemsAdmin() ? "Administrador Sistemas - Google activo" : "Usuario departamento - Google activo";
@@ -548,6 +585,41 @@ function applyResponsibleSelection() {
         .map((user) => user.phone)
         .filter(Boolean)
         .join(", ");
+    renderSelectedOwners(selectedUsers, selectedValues.includes("__all__"));
+}
+
+function renderSelectedOwners(selectedUsers, selectedAll) {
+    if (!selectedOwners) {
+        return;
+    }
+    if (selectedAll) {
+        selectedOwners.innerHTML = "";
+        const chip = document.createElement("span");
+        chip.className = "owner-chip owner-chip-all";
+        chip.textContent = `Todos del departamento - ${departmentSelect.value}`;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.dataset.removeOwner = "__all__";
+        remove.setAttribute("aria-label", "Quitar todos los encargados seleccionados");
+        remove.textContent = "×";
+        chip.appendChild(remove);
+        selectedOwners.appendChild(chip);
+        return;
+    }
+
+    selectedOwners.innerHTML = "";
+    selectedUsers.forEach((user) => {
+        const chip = document.createElement("span");
+        chip.className = "owner-chip";
+        chip.textContent = user.name;
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.dataset.removeOwner = user.email;
+        remove.setAttribute("aria-label", `Quitar a ${user.name}`);
+        remove.textContent = "×";
+        chip.appendChild(remove);
+        selectedOwners.appendChild(chip);
+    });
 }
 function populateExternalDepartments() {
     const departments = [...new Set(users.map((user) => user.department))]
