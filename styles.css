@@ -99,6 +99,16 @@ textarea {
   font: inherit;
 }
 
+.field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#ownerSelect {
+  min-height: 120px;
+}
+
 .app-header {
   display: flex;
   align-items: center;
@@ -216,6 +226,15 @@ textarea {
   gap: 14px;
   margin-top: 22px;
   min-width: 0;
+}
+
+.form-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.edit-card {
+  color: var(--blue);
 }
 
 .import-box {
@@ -621,6 +640,10 @@ dd {
 .card-actions {
   flex-wrap: wrap;
   margin-top: 4px;
+}
+
+.whatsapp-links {
+  display: contents;
 }
 
 .small-button {
