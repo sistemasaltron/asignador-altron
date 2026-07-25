@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="assets/logo-altron.png">
     <link rel="apple-touch-icon" href="assets/logo-altron.png">
-    <link rel="stylesheet" href="styles.css?v=admin-2">
+    <link rel="stylesheet" href="styles.css?v=admin-3">
 </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -87,25 +87,24 @@
         </div>
 
         <form id="assignmentForm" class="assignment-form">
-           <label>
-    Tipo
-    <select id="type" required>
-        <option value="visita">Visita comercial</option>
-        <option value="reunion">Reunión</option>
-        <option value="departamento">Tarea por departamento</option>
-        <option value="oferta">Recordatorio de oferta comercial</option>
-        <option value="viaje">Cronograma de viaje</option>
-        <option value="documentacion">Documentación pendiente</option>
-        <option value="pendiente">Pendiente general</option>
-        <option value="otro">Otro</option>
-    </select>
-</label>
+            <label>
+                Tipo
+                <select id="type" required>
+                    <option value="visita">Visita comercial</option>
+                    <option value="reunion">Reunión</option>
+                    <option value="departamento">Tarea por departamento</option>
+                    <option value="oferta">Recordatorio de oferta comercial</option>
+                    <option value="viaje">Cronograma de viaje</option>
+                    <option value="documentacion">Documentación pendiente</option>
+                    <option value="pendiente">Pendiente general</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </label>
 
-<label id="customTypeField" class="is-hidden">
-    Tipo personalizado
-    <input id="customType" type="text" maxlength="80"
-           placeholder="Escribe qué tipo de tarea es">
-</label>
+            <label id="customTypeField" class="is-hidden">
+                Tipo personalizado
+                <input id="customType" type="text" maxlength="80" placeholder="Escribe qué tipo de tarea es">
+            </label>
 
             <label>
                 Título
@@ -144,32 +143,33 @@
 
             <div class="field-grid">
                 <label>
-                    Responsable principal
-                    <select id="ownerSelect" required></select>
+                    Encargado(s) de realizar la tarea
+                    <select id="ownerSelect" required multiple size="5"></select>
+                    <small class="field-hint">Puedes seleccionar varias personas con Ctrl o haciendo clic en varias opciones.</small>
                 </label>
                 <label>
                     Correo Google
-                    <input id="email" type="email" placeholder="persona@empresa.com" readonly>
+                    <input id="email" type="text" placeholder="persona@empresa.com" readonly>
                 </label>
             </div>
             <div class="field-grid">
                 <label>
-                    Departamento del responsable adicional
+                    Departamento de encargados adicionales
                     <select id="additionalDepartment">
-                        <option value="">Seleccionar departamento del responsable</option>
+                        <option value="">Seleccionar departamento del encargado</option>
                     </select>
                 </label>
                 <label>
-                    Responsable adicional
+                    Encargado adicional
                     <select id="additionalPerson">
-                        <option value="">Seleccionar responsable adicional</option>
+                        <option value="">Seleccionar encargado adicional</option>
                     </select>
                 </label>
             </div>
 
             <label>
-                Responsables adicionales
-                <input id="additionalResponsible" type="text" placeholder="Correos de personas que también harán parte de la tarea, separados por coma">
+                Encargados adicionales
+                <input id="additionalResponsible" type="text" placeholder="Correos de otras personas que participarán, separados por coma">
             </label>
             <label>
                 WhatsApp
@@ -236,7 +236,10 @@
                 <textarea id="notes" rows="4" placeholder="Objetivo, contacto, documentos necesarios o instrucciones"></textarea>
             </label>
 
-            <button class="primary-button full-width" type="submit">Guardar asignación</button>
+            <div class="form-actions">
+              <button class="primary-button full-width" id="saveAssignmentButton" type="submit">Guardar asignación</button>
+              <button class="small-button full-width is-hidden" id="cancelEditButton" type="button">Cancelar edición</button>
+            </div>
         </form>
 
         <div class="import-box">
@@ -261,17 +264,17 @@
                   <span aria-hidden="true">⌕</span>
                   <input id="searchInput" type="search" placeholder="Buscar por responsable, cliente o departamento">
               </div>
-            <select id="typeFilter" aria-label="Filtrar por tipo">
-    <option value="todos">Todos los tipos</option>
-    <option value="visita">Visitas comerciales</option>
-    <option value="reunion">Reuniones</option>
-    <option value="departamento">Tareas por departamento</option>
-    <option value="oferta">Ofertas comerciales</option>
-    <option value="viaje">Viajes</option>
-    <option value="documentacion">Documentación pendiente</option>
-    <option value="pendiente">Pendientes generales</option>
-    <option value="otro">Otros</option>
-</select>
+              <select id="typeFilter" aria-label="Filtrar por tipo">
+                  <option value="todos">Todos los tipos</option>
+                  <option value="visita">Visitas comerciales</option>
+                  <option value="reunion">Reuniones</option>
+                  <option value="departamento">Tareas por departamento</option>
+                  <option value="oferta">Ofertas comerciales</option>
+                  <option value="viaje">Viajes</option>
+                  <option value="documentacion">Documentación pendiente</option>
+                  <option value="pendiente">Pendientes generales</option>
+                  <option value="otro">Otros</option>
+              </select>
           </div>
 
         <div class="metrics" id="metrics"></div>
@@ -297,9 +300,9 @@
         </div>
         <h3></h3>
         <dl>
-            <div><dt>Responsable principal</dt><dd data-field="owner"></dd></div>
+            <div><dt>Encargado(s) de realizar</dt><dd data-field="owner"></dd></div>
             <div><dt>Responsables adicionales</dt><dd data-field="additionalResponsible"></dd></div>
-            <div><dt>Asignó</dt><dd data-field="createdBy"></dd></div>
+            <div><dt>Responsable que agenda</dt><dd data-field="createdBy"></dd></div>
             <div><dt>Presentar a</dt><dd data-field="recipient"></dd></div>
             <div><dt>Informados / solo lectura</dt><dd data-field="sharedWith"></dd></div>
             <div><dt>Departamento</dt><dd data-field="department"></dd></div>
@@ -329,15 +332,16 @@
         <p class="notes"></p>
         <div class="card-actions">
           <a class="small-button calendar-link" target="_blank" rel="noreferrer">Google Calendar</a>
-          <a class="small-button whatsapp-link" target="_blank" rel="noreferrer">Enviar WhatsApp</a>
+          <div class="whatsapp-links"></div>
           <button class="small-button download-ics" type="button">.ics</button>
           <button class="small-button copy-summary" type="button">Copiar</button>
+          <button class="small-button edit-card" type="button">Editar</button>
           <button class="small-button danger delete-card" type="button">Eliminar</button>
         </div>
       </article>
     </template>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="app.js?v=admin-2"></script>
+    <script src="app.js?v=admin-3"></script>
   </body>
 </html>
