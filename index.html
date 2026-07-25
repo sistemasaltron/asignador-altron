@@ -8,7 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/png" href="assets/logo-altron.png">
     <link rel="apple-touch-icon" href="assets/logo-altron.png">
-    <link rel="stylesheet" href="styles.css?v=admin-5">
+    <link rel="stylesheet" href="styles.css?v=admin-6">
 </head>
   <body>
     <section class="auth-panel" id="authPanel">
@@ -145,6 +145,7 @@
                 <label>
                     Encargado(s) de realizar la tarea
                     <select id="ownerSelect" required multiple size="3"></select>
+                    <div id="selectedOwners" class="selected-owners" aria-live="polite"></div>
                 </label>
                 <label>
                     Correo(s) Google de encargados
@@ -333,6 +334,6 @@
     </dialog>
 
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script src="app.js?v=admin-5"></script>
+    <script src="app.js?v=admin-6"></script>
   </body>
 </html>
