@@ -104,6 +104,50 @@ textarea {
   height: 76px;
 }
 
+.selected-owners {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.owner-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 7px 4px 9px;
+  border: 1px solid #b8d8cc;
+  border-radius: 999px;
+  background: #eef8f3;
+  color: #245c49;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.owner-chip-all {
+  background: #e8f1ff;
+  border-color: #bfd2ee;
+  color: #245184;
+}
+
+.owner-chip button {
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 15px;
+}
+
+.owner-chip button:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
 .app-header {
   display: flex;
   align-items: center;
