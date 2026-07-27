@@ -179,7 +179,7 @@ textarea {
 
 .selected-owners {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 5px;
   margin-top: 7px;
 }
@@ -197,7 +197,19 @@ textarea {
   color: #245c49;
   font-size: 11px;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.owner-chip button {
+  flex: 0 0 auto;
+}
+
+.owner-chip > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .owner-field {
@@ -356,6 +368,14 @@ textarea {
   margin: 0;
   font-size: 12px;
   font-weight: 700;
+  text-align: center;
+}
+
+.calendar-reminder {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
   text-align: center;
 }
 
