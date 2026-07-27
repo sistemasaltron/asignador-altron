@@ -1,4 +1,4 @@
-const CACHE_NAME = "asignador-comercial-v19";
+const CACHE_NAME = "asignador-comercial-v20";
 const APP_SHELL = [
   "./",
   "./index.html",
