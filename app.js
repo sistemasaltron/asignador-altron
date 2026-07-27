@@ -128,9 +128,14 @@ form.addEventListener("submit", async (event) => {
         }
 
         const cloudOk = saveResponse?.ok !== false;
+        const calendarOk = saveResponse?.calendar?.ok !== false;
         setSaveStatus(
-            cloudOk ? "Proceso exitoso. Tarea guardada." : "Tarea guardada localmente; Google aún no confirmó la sincronización.",
-            cloudOk ? "success" : "warning"
+            !cloudOk
+                ? "Tarea guardada localmente; Google aún no confirmó la sincronización."
+                : !calendarOk
+                    ? "Tarea guardada, pero no se pudo agendar automáticamente en Google Calendar."
+                    : saveResponse?.calendar?.message || "Proceso exitoso. Tarea guardada y agendada en Google Calendar.",
+            !cloudOk || !calendarOk ? "warning" : "success"
         );
         render();
     } catch (error) {
@@ -416,6 +421,14 @@ async function saveAssignment(assignment) {
     const response = await cloudPost("saveAssignment", {
         assignment
     });
+
+    if (response?.assignment?.id) {
+        assignments = assignments.map((item) => item.id === response.assignment.id
+            ? { ...item, ...response.assignment }
+            : item
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    }
 
     console.log("Resultado guardando tarea individual:", response);
     return response;
