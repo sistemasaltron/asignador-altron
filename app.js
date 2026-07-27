@@ -43,6 +43,8 @@ const sessionDescription = document.querySelector("#sessionDescription");
 const sessionPill = document.querySelector("#sessionPill");
 const departmentSelect = document.querySelector("#department");
 const ownerSelect = document.querySelector("#ownerSelect");
+const ownerPickerList = document.querySelector("#ownerPickerList");
+const ownerScopeButtons = document.querySelectorAll("[data-owner-scope]");
 const selectedOwners = document.querySelector("#selectedOwners");
 const externalDepartment = document.querySelector("#externalDepartment");
 const externalPerson = document.querySelector("#externalPerson");
@@ -69,6 +71,7 @@ const customTypeField = document.querySelector("#customTypeField");
 const customTypeInput = document.querySelector("#customType");
 const saveAssignmentButton = document.querySelector("#saveAssignmentButton");
 const cancelEditButton = document.querySelector("#cancelEditButton");
+const saveStatus = document.querySelector("#saveStatus");
 const historyDialog = document.querySelector("#historyDialog");
 const historyTitle = document.querySelector("#historyTitle");
 const historyList = document.querySelector("#historyList");
@@ -87,31 +90,55 @@ let metricFilter = "todos";
 let auditExpanded = false;
 let selectedAssignmentId = null;
 let editingAssignmentId = null;
+let ownerScope = "department";
 
 initializeAuth();
 
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!ownerSelect.selectedOptions.length) {
+        setSaveStatus("Selecciona al menos un encargado.", "error");
+        return;
+    }
+
     const previous = editingAssignmentId ? assignments.find((item) => item.id === editingAssignmentId) : null;
     const data = getFormData(previous);
     if (new Date(data.end) <= new Date(data.start)) {
-        alert("La fecha de fin debe ser posterior a la fecha de inicio.");
+        setSaveStatus("La fecha de fin debe ser posterior a la fecha de inicio.", "error");
         return;
     }
-    if (editingAssignmentId) {
-        assignments = assignments.map((item) => item.id === editingAssignmentId ? data : item);
-        addAudit("actualizo", data, describeAssignmentChanges(previous, data));
-        await saveAssignment(data);
-        finishEditing();
-    } else {
-        assignments = [data, ...assignments];
-        addAudit("creo", data, `Creó tarea para ${data.department}`);
-        await saveAssignment(data);
-        await sendAssignmentEmail(data);
-        resetAssignmentForm();
-    }
 
-    render();
+    const wasEditing = Boolean(editingAssignmentId);
+    setSavingState(true);
+    setSaveStatus("Procesando y sincronizando...", "processing");
+
+    try {
+        let saveResponse;
+        if (wasEditing) {
+            assignments = assignments.map((item) => item.id === editingAssignmentId ? data : item);
+            addAudit("actualizo", data, describeAssignmentChanges(previous, data));
+            saveResponse = await saveAssignment(data);
+            finishEditing();
+        } else {
+            assignments = [data, ...assignments];
+            addAudit("creo", data, `Creó tarea para ${data.department}`);
+            saveResponse = await saveAssignment(data);
+            await sendAssignmentEmail(data);
+            resetAssignmentForm();
+        }
+
+        const cloudOk = saveResponse?.ok !== false;
+        setSaveStatus(
+            cloudOk ? "Proceso exitoso. Tarea guardada." : "Tarea guardada localmente; Google aún no confirmó la sincronización.",
+            cloudOk ? "success" : "warning"
+        );
+        render();
+    } catch (error) {
+        console.error("No se pudo guardar la tarea.", error);
+        setSaveStatus(`No se pudo completar: ${error.message || error}`, "error");
+    } finally {
+        setSavingState(false);
+    }
 });
 
 searchInput.addEventListener("input", render);
@@ -152,6 +179,8 @@ metrics.addEventListener("click", (event) => {
     render();
 });
 departmentSelect.addEventListener("change", () => {
+    ownerScope = "department";
+    updateOwnerScopeTabs();
     populateResponsibleOptions();
     populateExternalDepartments();
 });
@@ -168,6 +197,21 @@ ownerSelect.addEventListener("change", () => {
         }
     }
     applyResponsibleSelection();
+});
+ownerScopeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        const preferredEmail = valueOf("#email");
+        ownerScope = button.dataset.ownerScope;
+        updateOwnerScopeTabs();
+        populateResponsibleOptions(preferredEmail);
+    });
+});
+ownerPickerList.addEventListener("click", (event) => {
+    const optionButton = event.target.closest("[data-owner-value]");
+    if (!optionButton) {
+        return;
+    }
+    toggleOwnerSelection(optionButton.dataset.ownerValue);
 });
 selectedOwners.addEventListener("click", (event) => {
     const removeButton = event.target.closest("[data-remove-owner]");
@@ -528,6 +572,8 @@ function applyCurrentUserToUi() {
     sessionDescription.textContent = `${currentUser.role} - ${currentUser.department}`;
     sessionPill.textContent = isSystemsAdmin() ? "Administrador Sistemas" : "Usuario departamento";
     departmentSelect.value = currentUser.department;
+    ownerScope = "department";
+    updateOwnerScopeTabs();
     populateResponsibleOptions();
     populateExternalDepartments();
 }
@@ -537,46 +583,55 @@ function populateResponsibleOptions(preferredEmail = "") {
     const activeUsers = users
         .filter((user) => user.email)
         .sort((a, b) => `${a.department} ${a.name}`.localeCompare(`${b.department} ${b.name}`));
+    const visibleUsers = ownerScope === "all"
+        ? activeUsers
+        : activeUsers.filter((user) => user.department === department);
     ownerSelect.innerHTML = "";
 
     const allOption = document.createElement("option");
     allOption.value = "__all__";
-    allOption.textContent = `Todos del departamento - ${department}`;
+    allOption.textContent = ownerScope === "all"
+        ? "Todos los usuarios"
+        : `Todos del departamento - ${department}`;
     ownerSelect.appendChild(allOption);
 
-    activeUsers.forEach((user) => {
+    visibleUsers.forEach((user) => {
         const option = document.createElement("option");
         option.value = user.email;
-        option.textContent = `${user.name} - ${user.department}`;
+        option.textContent = ownerScope === "all"
+            ? `${user.name} - ${user.department}`
+            : `${user.name} - ${user.role}`;
         ownerSelect.appendChild(option);
     });
 
     const preferredEmails = parseEmailList(preferredEmail);
     const matchingPreferred = preferredEmails.filter((email) =>
-        activeUsers.some((user) => user.email.toLowerCase() === email)
+        visibleUsers.some((user) => user.email.toLowerCase() === email)
     );
 
     if (matchingPreferred.length) {
         [...ownerSelect.options].forEach((option) => {
             option.selected = matchingPreferred.includes(option.value.toLowerCase());
         });
-    } else if (activeUsers.some((user) => user.email === currentUser?.email)) {
+    } else if (visibleUsers.some((user) => user.email === currentUser?.email)) {
         ownerSelect.value = currentUser.email;
-    } else {
+    } else if (visibleUsers.length) {
         ownerSelect.value = "__all__";
     }
     applyResponsibleSelection();
+    renderOwnerPicker(visibleUsers, department);
 }
 
 function applyResponsibleSelection() {
     const department = departmentSelect.value;
     const activeUsers = users.filter((user) => user.email);
     const departmentUsers = activeUsers.filter((user) => user.department === department);
+    const visibleUsers = ownerScope === "all" ? activeUsers : departmentUsers;
 
     const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
     const selectedUsers = selectedValues.includes("__all__")
-        ? departmentUsers
-        : activeUsers.filter((user) => selectedValues.includes(user.email));
+        ? visibleUsers
+        : visibleUsers.filter((user) => selectedValues.includes(user.email));
 
     document.querySelector("#email").value = selectedUsers
         .map((user) => user.email)
@@ -586,6 +641,59 @@ function applyResponsibleSelection() {
         .filter(Boolean)
         .join(", ");
     renderSelectedOwners(selectedUsers, selectedValues.includes("__all__"));
+    renderOwnerPicker(visibleUsers, department);
+}
+
+function updateOwnerScopeTabs() {
+    ownerScopeButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.ownerScope === ownerScope);
+    });
+}
+
+function renderOwnerPicker(visibleUsers, department) {
+    ownerPickerList.innerHTML = "";
+    const selectedValues = new Set([...ownerSelect.selectedOptions].map((option) => option.value));
+    const addRow = (value, label, selected, extraClass = "") => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `owner-picker-row ${selected ? "selected" : ""} ${extraClass}`.trim();
+        button.dataset.ownerValue = value;
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", String(selected));
+        button.textContent = label;
+        ownerPickerList.appendChild(button);
+    };
+
+    addRow(
+        "__all__",
+        ownerScope === "all" ? "Todos los usuarios" : `Todos del departamento - ${department}`,
+        selectedValues.has("__all__"),
+        "owner-picker-all"
+    );
+    visibleUsers.forEach((user) => {
+        addRow(user.email, ownerScope === "all" ? `${user.name} - ${user.department}` : `${user.name} - ${user.role}`, selectedValues.has(user.email));
+    });
+}
+
+function toggleOwnerSelection(value) {
+    const option = [...ownerSelect.options].find((item) => item.value === value);
+    if (!option) {
+        return;
+    }
+
+    if (value === "__all__") {
+        const shouldSelectAll = !option.selected;
+        [...ownerSelect.options].forEach((item) => {
+            item.selected = item.value === "__all__" ? shouldSelectAll : false;
+        });
+    } else {
+        const allOption = [...ownerSelect.options].find((item) => item.value === "__all__");
+        if (allOption) {
+            allOption.selected = false;
+        }
+        option.selected = !option.selected;
+    }
+    applyResponsibleSelection();
 }
 
 function renderSelectedOwners(selectedUsers, selectedAll) {
@@ -596,7 +704,9 @@ function renderSelectedOwners(selectedUsers, selectedAll) {
         selectedOwners.innerHTML = "";
         const chip = document.createElement("span");
         chip.className = "owner-chip owner-chip-all";
-        chip.textContent = `Todos del departamento - ${departmentSelect.value}`;
+        chip.textContent = ownerScope === "all"
+            ? "Todos los usuarios"
+            : `Todos del departamento - ${departmentSelect.value}`;
         const remove = document.createElement("button");
         remove.type = "button";
         remove.dataset.removeOwner = "__all__";
@@ -826,11 +936,28 @@ function toggleCustomTypeField() {
 function resetAssignmentForm() {
     editingAssignmentId = null;
     form.reset();
+    ownerScope = "department";
+    updateOwnerScopeTabs();
     setAssignmentType("visita");
     setDefaultDates();
     toggleCustomTypeField();
     saveAssignmentButton.textContent = "Guardar asignación";
     cancelEditButton.classList.add("is-hidden");
+    setSaveStatus("", "");
+}
+
+function setSaveStatus(message, type = "") {
+    saveStatus.textContent = message;
+    saveStatus.className = `save-status ${type}`.trim();
+}
+
+function setSavingState(isSaving) {
+    saveAssignmentButton.disabled = isSaving;
+    if (isSaving) {
+        saveAssignmentButton.textContent = "Procesando...";
+        return;
+    }
+    saveAssignmentButton.textContent = editingAssignmentId ? "Guardar cambios" : "Guardar asignación";
 }
 
 function finishEditing() {
@@ -848,6 +975,12 @@ function editAssignment(id) {
     setAssignmentType(assignment.type || "pendiente", assignment.customType || "");
     document.querySelector("#title").value = assignment.title || "";
     departmentSelect.value = assignment.department || currentUser.department;
+    const assignmentEmails = parseEmailList(assignment.email || "");
+    ownerScope = assignmentEmails.some((email) => {
+        const user = users.find((item) => item.email === email);
+        return user && user.department !== departmentSelect.value;
+    }) ? "all" : "department";
+    updateOwnerScopeTabs();
     populateResponsibleOptions(assignment.email || "");
     applyResponsibleSelection();
     document.querySelector("#sharedWith").value = (assignment.sharedWith || []).join(", ");
@@ -910,9 +1043,10 @@ function ownerNameFromSelection() {
     const selectedValues = [...ownerSelect.selectedOptions].map((option) => option.value);
     const activeUsers = users.filter((user) => user.email);
     const departmentUsers = activeUsers.filter((user) => user.department === departmentSelect.value);
+    const visibleUsers = ownerScope === "all" ? activeUsers : departmentUsers;
     const selectedUsers = selectedValues.includes("__all__")
-        ? departmentUsers
-        : activeUsers.filter((user) => selectedValues.includes(user.email));
+        ? visibleUsers
+        : visibleUsers.filter((user) => selectedValues.includes(user.email));
 
     return selectedUsers.map((user) => user.name).join(", ") || "Sin encargado seleccionado";
 }
@@ -1693,6 +1827,8 @@ function addAudit(action, assignment, detail) {
         document.querySelector("#type").value = "pendiente";
         document.querySelector("#title").value = task.title;
         departmentSelect.value = "Sistemas";
+        ownerScope = "department";
+        updateOwnerScopeTabs();
         populateResponsibleOptions();
         ownerSelect.value = "__all__";
         applyResponsibleSelection();
