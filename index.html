@@ -144,7 +144,12 @@
             <div class="field-grid">
                 <label>
                     Encargado(s) de realizar la tarea
-                    <select id="ownerSelect" required multiple size="3"></select>
+                    <div class="owner-scope-tabs" role="tablist" aria-label="Filtrar encargados">
+                      <button class="owner-scope-tab active" type="button" data-owner-scope="department">Departamento</button>
+                      <button class="owner-scope-tab" type="button" data-owner-scope="all">Todos</button>
+                    </div>
+                    <div id="ownerPickerList" class="owner-picker-list" role="listbox" aria-multiselectable="true"></div>
+                    <select id="ownerSelect" class="owner-select-data" multiple tabindex="-1" aria-hidden="true"></select>
                     <div id="selectedOwners" class="selected-owners" aria-live="polite"></div>
                 </label>
                 <label>
@@ -220,6 +225,7 @@
             <div class="form-actions">
               <button class="primary-button full-width" id="saveAssignmentButton" type="submit">Guardar asignación</button>
               <button class="small-button full-width is-hidden" id="cancelEditButton" type="button">Cancelar edición</button>
+              <p class="save-status" id="saveStatus" role="status" aria-live="polite"></p>
             </div>
         </form>
 
