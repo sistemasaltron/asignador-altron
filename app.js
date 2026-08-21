@@ -302,21 +302,12 @@ async function syncFromCloud() {
         }
 
         if (Array.isArray(response.assignments)) {
-            const localAssignments = readAssignments();
-            const remoteIds = new Set(response.assignments.map((item) => String(item.id)));
-            const localOnlyAssignments = localAssignments.filter((item) => !remoteIds.has(String(item.id)));
-            assignments = [...response.assignments, ...localOnlyAssignments];
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
-
-            // Migra a Google las tareas antiguas que estaban solo en este navegador.
-            await Promise.all(localOnlyAssignments.map(async (assignment) => {
-                try {
-                    await saveAssignment(assignment);
-                } catch (error) {
-                    console.warn("No se pudo migrar una tarea local a Google.", error);
-                }
-            }));
-        }
+    assignments = response.assignments;
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(assignments)
+    );
+}
 
         if (Array.isArray(response.auditLog)) {
             const localAudit = readAuditLog();
@@ -1036,37 +1027,134 @@ function setDefaultDates() {
     document.querySelector("#start").value = toLocalInputValue(start);
     document.querySelector("#end").value = toLocalInputValue(end);
 }
-
 function getFormData(previous = null) {
+
     const selectedType = valueOf("#type");
+
     return {
+
         id: previous?.id || createId(),
+
         type: selectedType,
+
         customType: selectedType === "otro" ? valueOf("#customType") : "",
+
         title: valueOf("#title"),
+
         owner: ownerNameFromSelection(),
+
         email: valueOf("#email"),
+
         phone: valueOf("#phone"),
+
         department: valueOf("#department"),
+
         recipient: valueOf("#recipient"),
+
         // Se conserva únicamente para no perder datos antiguos; ya no se edita desde el formulario.
         additionalResponsible: previous?.additionalResponsible || [],
+
         sharedWith: parseEmailList(valueOf("#sharedWith")),
+
         status: valueOf("#status"),
+
         start: valueOf("#start"),
+
         end: valueOf("#end"),
+
         place: valueOf("#place"),
+
         priority: valueOf("#priority"),
+
         progress: progressValue(),
+
         notes: valueOf("#notes"),
+
         createdAt: previous?.createdAt || new Date().toISOString(),
+
         createdBy: previous?.createdBy || currentUser.email,
+
         createdByName: previous?.createdByName || currentUser.name,
+
         createdByDepartment: previous?.createdByDepartment || currentUser.department,
+
         updatedAt: new Date().toISOString(),
+
         updatedBy: currentUser.email,
+
+        // Conserva el evento existente de Google Calendar cuando se edita la tarea.
+        calendarEventId: previous?.calendarEventId || "",
+
+        calendarStatus: previous?.calendarStatus || null,
+
         followUps: previous?.followUps || []
+
     };
+
+}function getFormData(previous = null) {
+
+    const selectedType = valueOf("#type");
+
+    return {
+
+        id: previous?.id || createId(),
+
+        type: selectedType,
+
+        customType: selectedType === "otro" ? valueOf("#customType") : "",
+
+        title: valueOf("#title"),
+
+        owner: ownerNameFromSelection(),
+
+        email: valueOf("#email"),
+
+        phone: valueOf("#phone"),
+
+        department: valueOf("#department"),
+
+        recipient: valueOf("#recipient"),
+
+        // Se conserva únicamente para no perder datos antiguos; ya no se edita desde el formulario.
+        additionalResponsible: previous?.additionalResponsible || [],
+
+        sharedWith: parseEmailList(valueOf("#sharedWith")),
+
+        status: valueOf("#status"),
+
+        start: valueOf("#start"),
+
+        end: valueOf("#end"),
+
+        place: valueOf("#place"),
+
+        priority: valueOf("#priority"),
+
+        progress: progressValue(),
+
+        notes: valueOf("#notes"),
+
+        createdAt: previous?.createdAt || new Date().toISOString(),
+
+        createdBy: previous?.createdBy || currentUser.email,
+
+        createdByName: previous?.createdByName || currentUser.name,
+
+        createdByDepartment: previous?.createdByDepartment || currentUser.department,
+
+        updatedAt: new Date().toISOString(),
+
+        updatedBy: currentUser.email,
+
+        // Conserva el evento existente de Google Calendar cuando se edita la tarea.
+        calendarEventId: previous?.calendarEventId || "",
+
+        calendarStatus: previous?.calendarStatus || null,
+
+        followUps: previous?.followUps || []
+
+    };
+
 }
 
 function ownerNameFromSelection() {
@@ -1505,24 +1593,63 @@ async function deleteAssignment(id) {
         return;
     }
 
-    const confirmar = confirm("¿Seguro que deseas eliminar esta tarea? Esta acción quedará registrada en la bitácora.");
+    const confirmar = confirm(
+        "¿Seguro que deseas eliminar esta tarea? Esta acción quedará registrada en la bitácora."
+    );
 
     if (!confirmar) {
         return;
     }
 
-    const deleted = assignments.find((assignment) => assignment.id === id);
+    const deleted = assignments.find(
+        (assignment) => String(assignment.id) === String(id)
+    );
 
-    if (deleted) {
-        addAudit("borro", deleted, `Borro tarea de ${deleted.department}`);
+    if (!deleted) {
+        alert("No se encontró la tarea que intentas eliminar.");
+        return;
     }
 
-    assignments = assignments.filter((assignment) => assignment.id !== id);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+    // Primero se elimina de Google.
+    // Solo si Google confirma, se elimina del navegador.
+    const response = await deleteAssignmentCloud(id);
 
-    await deleteAssignmentCloud(id);
+    if (!response?.ok || response?.deleted !== true) {
+        const detail =
+            response?.error ||
+            response?.message ||
+            "Google no confirmó la eliminación.";
+
+        alert(
+            `No se pudo eliminar la tarea definitivamente. ${detail}`
+        );
+
+        return;
+    }
+
+    // Google confirmó la eliminación
+    assignments = assignments.filter(
+        (assignment) => String(assignment.id) !== String(id)
+    );
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(assignments)
+    );
+
+    addAudit(
+        "borro",
+        deleted,
+        `Borró tarea de ${deleted.department}`
+    );
 
     render();
+
+    if (response?.calendar?.ok === false) {
+        alert(
+            "La tarea se eliminó de Asignador Altron, pero no se pudo eliminar el evento de Google Calendar."
+        );
+    }
 }
 
 async function updateAssignment(id, changes, action = "actualizo") {
