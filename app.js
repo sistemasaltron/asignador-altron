@@ -1037,7 +1037,9 @@ function getFormData(previous = null) {
 
         type: selectedType,
 
-        customType: selectedType === "otro" ? valueOf("#customType") : "",
+        customType: selectedType === "otro"
+            ? valueOf("#customType")
+            : "",
 
         title: valueOf("#title"),
 
@@ -1051,10 +1053,12 @@ function getFormData(previous = null) {
 
         recipient: valueOf("#recipient"),
 
-        // Se conserva únicamente para no perder datos antiguos; ya no se edita desde el formulario.
+        // Se conserva únicamente para no perder datos antiguos.
         additionalResponsible: previous?.additionalResponsible || [],
 
-        sharedWith: parseEmailList(valueOf("#sharedWith")),
+        sharedWith: parseEmailList(
+            valueOf("#sharedWith")
+        ),
 
         status: valueOf("#status"),
 
@@ -1070,26 +1074,41 @@ function getFormData(previous = null) {
 
         notes: valueOf("#notes"),
 
-        createdAt: previous?.createdAt || new Date().toISOString(),
+        createdAt:
+            previous?.createdAt ||
+            new Date().toISOString(),
 
-        createdBy: previous?.createdBy || currentUser.email,
+        createdBy:
+            previous?.createdBy ||
+            currentUser.email,
 
-        createdByName: previous?.createdByName || currentUser.name,
+        createdByName:
+            previous?.createdByName ||
+            currentUser.name,
 
-        createdByDepartment: previous?.createdByDepartment || currentUser.department,
+        createdByDepartment:
+            previous?.createdByDepartment ||
+            currentUser.department,
 
-        updatedAt: new Date().toISOString(),
+        updatedAt:
+            new Date().toISOString(),
 
-        updatedBy: currentUser.email,
+        updatedBy:
+            currentUser.email,
 
-        // Conserva el evento existente de Google Calendar cuando se edita la tarea.
-        calendarEventId: previous?.calendarEventId || "",
+        // Conserva el mismo evento de Google Calendar al editar.
+        calendarEventId:
+            previous?.calendarEventId || "",
 
-        calendarStatus: previous?.calendarStatus || null,
+        calendarStatus:
+            previous?.calendarStatus || null,
 
-        followUps: previous?.followUps || []
+        followUps:
+            previous?.followUps || []
 
     };
+
+}
 
 }function getFormData(previous = null) {
 
