@@ -7,7 +7,7 @@ const DEFAULT_PASSWORD = "Altron2026..";
 
 // URL del Web App de Apps Script.
 // Esta URL conecta la aplicación web con la base central en Google Sheets.
-const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/a/macros/altroningenieria.com/s/AKfycby5RyzWJR0ejUhE9nZZN3e8-OYT-fLMHT5qkw7WFvAuGfjsDR8PaV75hqqtR10PD-nl/exec";
+const GOOGLE_APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5RyzWJR0ejUhE9nZZN3e8-OYT-fLMHT5qkw7WFvAuGfjsDR8PaV75hqqtR10PD-nl/exec";
 const APP_TOKEN = "ALTRON-ASIGNADOR-2026";
 // Activa la nube tanto para URLs normales como para URLs corporativas de Google Workspace.
 const CLOUD_ENABLED = GOOGLE_APPS_SCRIPT_URL.includes("script.google.com") && GOOGLE_APPS_SCRIPT_URL.includes("/exec");
